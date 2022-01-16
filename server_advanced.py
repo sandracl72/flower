@@ -1,4 +1,4 @@
-import flwr as fl 
+import src.py.flwr as fl 
 import sys
 sys.path.append('/workspace/stylegan2-ada-pytorch')
 from melanoma_cnn_efficientnet import Net 
