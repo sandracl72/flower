@@ -9,6 +9,7 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
+DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 class CifarClient(fl.client.NumPyClient):
     def __init__(
@@ -111,7 +112,7 @@ def main() -> None:
     args = parser.parse_args()
 
     # Load PyTorch model
-    model = utils.load_efficientnet(classes=10)
+    model = utils.load_efficientnet(classes=10).to(DEVICE)
 
     # Load a subset of CIFAR-10 to simulate the local data partition
     trainset, testset = utils.load_partition(args.partition)
