@@ -22,7 +22,7 @@ from typing import Callable, Dict, List, Optional, Tuple, cast
 
 import numpy as np
 
-from flwr.common import (
+from ...common import (
     EvaluateRes,
     FitIns,
     FitRes,
@@ -32,9 +32,9 @@ from flwr.common import (
     parameters_to_weights,
     weights_to_parameters,
 )
-from flwr.common.logger import log
-from flwr.server.client_manager import ClientManager
-from flwr.server.client_proxy import ClientProxy
+from ...common.logger import log
+from ...server.client_manager import ClientManager
+from ...server.client_proxy import ClientProxy
 
 from .aggregate import aggregate, weighted_loss_avg
 from .fedavg import FedAvg

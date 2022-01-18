@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from flwr.proto import transport_pb2 as flwr_dot_proto_dot_transport__pb2
+from ..proto import transport_pb2 as flwr_dot_proto_dot_transport__pb2
 
 
 class FlowerServiceStub(object):

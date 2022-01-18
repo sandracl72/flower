@@ -14,10 +14,9 @@
 # ==============================================================================
 """ProtoBuf serialization and deserialization."""
 
-
 from typing import Any, List, cast
 
-from flwr.proto.transport_pb2 import (
+from ..proto.transport_pb2 import (
     ClientMessage,
     Parameters,
     Reason,

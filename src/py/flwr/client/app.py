@@ -19,8 +19,8 @@ import time
 from logging import INFO
 from typing import Optional
 
-from flwr.common import GRPC_MAX_MESSAGE_LENGTH
-from flwr.common.logger import log
+from ..common import GRPC_MAX_MESSAGE_LENGTH
+from ..common.logger import log
 
 from .client import Client
 from .grpc_client.connection import grpc_connection

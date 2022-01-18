@@ -21,7 +21,7 @@ Paper: https://arxiv.org/abs/2003.00295
 
 from typing import Callable, Dict, Optional, Tuple
 
-from flwr.common import Parameters, Scalar, Weights, parameters_to_weights
+from ...common import Parameters, Scalar, Weights, parameters_to_weights
 
 from .fedavg import FedAvg
 

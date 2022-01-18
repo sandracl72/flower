@@ -21,7 +21,7 @@ Paper: https://arxiv.org/abs/1602.05629
 from logging import WARNING
 from typing import Callable, Dict, List, Optional, Tuple
 
-from flwr.common import (
+from ...common import (
     EvaluateIns,
     EvaluateRes,
     FitIns,
@@ -32,9 +32,9 @@ from flwr.common import (
     parameters_to_weights,
     weights_to_parameters,
 )
-from flwr.common.logger import log
-from flwr.server.client_manager import ClientManager
-from flwr.server.client_proxy import ClientProxy
+from ...common.logger import log
+from ...server.client_manager import ClientManager
+from ...server.client_proxy import ClientProxy
 
 from .aggregate import aggregate, weighted_loss_avg
 from .strategy import Strategy

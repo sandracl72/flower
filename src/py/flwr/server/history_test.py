@@ -15,7 +15,7 @@
 """Tests for class History."""
 
 
-from flwr.server.history import History
+from ..server.history import History
 
 
 def test_add_loss_distributed() -> None:

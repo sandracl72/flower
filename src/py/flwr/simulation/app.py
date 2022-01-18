@@ -21,12 +21,12 @@ from typing import Any, Callable, Dict, List, Optional
 
 import ray
 
-from flwr.client.client import Client
-from flwr.common.logger import log
-from flwr.server.app import _fl, _init_defaults
-from flwr.server.history import History
-from flwr.server.strategy import Strategy
-from flwr.simulation.ray_transport.ray_client_proxy import RayClientProxy
+from ..client.client import Client
+from ..common.logger import log
+from ..server.app import _fl, _init_defaults
+from ..server.history import History
+from ..server.strategy import Strategy
+from ..simulation.ray_transport.ray_client_proxy import RayClientProxy
 
 INVALID_ARGUMENTS_START_SIMULATION = """
 INVALID ARGUMENTS ERROR

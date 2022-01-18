@@ -20,7 +20,7 @@ from typing import Dict, List, Optional, Tuple, Union, cast
 
 import numpy as np
 
-from flwr.common import (
+from ..common import (
     Config,
     EvaluateIns,
     EvaluateRes,

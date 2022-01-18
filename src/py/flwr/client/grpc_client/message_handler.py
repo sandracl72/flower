@@ -17,9 +17,9 @@
 
 from typing import Tuple
 
-from flwr.client.client import Client
-from flwr.common import serde
-from flwr.proto.transport_pb2 import ClientMessage, Reason, ServerMessage
+from ...client.client import Client
+from ...common import serde
+from ...proto.transport_pb2 import ClientMessage, Reason, ServerMessage
 
 # pylint: disable=missing-function-docstring
 

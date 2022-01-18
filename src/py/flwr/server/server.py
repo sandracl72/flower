@@ -20,7 +20,7 @@ import timeit
 from logging import DEBUG, INFO, WARNING
 from typing import Dict, List, Optional, Tuple, Union
 
-from flwr.common import (
+from ..common import (
     Disconnect,
     EvaluateIns,
     EvaluateRes,
@@ -32,11 +32,11 @@ from flwr.common import (
     Weights,
     weights_to_parameters,
 )
-from flwr.common.logger import log
-from flwr.server.client_manager import ClientManager
-from flwr.server.client_proxy import ClientProxy
-from flwr.server.history import History
-from flwr.server.strategy import FedAvg, Strategy
+from ..common.logger import log
+from ..server.client_manager import ClientManager
+from ..server.client_proxy import ClientProxy
+from ..server.history import History
+from ..server.strategy import FedAvg, Strategy
 
 DEPRECATION_WARNING_EVALUATE = """
 DEPRECATION WARNING: Method

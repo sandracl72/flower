@@ -22,9 +22,9 @@ from unittest.mock import patch
 
 import grpc
 
-from flwr.proto.transport_pb2 import ClientMessage, ServerMessage
-from flwr.server.client_manager import SimpleClientManager
-from flwr.server.grpc_server.grpc_server import start_grpc_server
+from ...proto.transport_pb2 import ClientMessage, ServerMessage
+from ...server.client_manager import SimpleClientManager
+from ...server.grpc_server.grpc_server import start_grpc_server
 
 from .connection import grpc_connection
 

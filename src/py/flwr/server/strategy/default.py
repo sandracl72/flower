@@ -20,7 +20,7 @@ DEPRECATION WARNING: use FedAvg instead.
 
 from typing import Callable, Dict, Optional, Tuple
 
-from flwr.common import Parameters, Scalar, Weights
+from ...common import Parameters, Scalar, Weights
 
 from .fedavg import FedAvg
 

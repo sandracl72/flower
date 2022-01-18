@@ -23,7 +23,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from flwr.common import (
+from ...common import (
     FitRes,
     Parameters,
     Scalar,
@@ -31,7 +31,7 @@ from flwr.common import (
     parameters_to_weights,
     weights_to_parameters,
 )
-from flwr.server.client_proxy import ClientProxy
+from ...server.client_proxy import ClientProxy
 
 from .fedopt import FedOpt
 

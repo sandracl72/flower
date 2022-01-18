@@ -19,7 +19,7 @@ from typing import List
 
 import numpy as np
 
-from flwr.common import (
+from ..common import (
     Disconnect,
     EvaluateIns,
     EvaluateRes,

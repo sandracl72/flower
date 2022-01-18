@@ -18,7 +18,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Tuple, Union
 
-from flwr.common import (
+from ...common import (
     EvaluateIns,
     EvaluateRes,
     FitIns,
@@ -27,8 +27,8 @@ from flwr.common import (
     Scalar,
     Weights,
 )
-from flwr.server.client_manager import ClientManager
-from flwr.server.client_proxy import ClientProxy
+from ...server.client_manager import ClientManager
+from ...server.client_proxy import ClientProxy
 
 
 class Strategy(ABC):

@@ -16,7 +16,7 @@
 
 import unittest
 
-from flwr.server.strategy import fast_and_slow
+from ...server.strategy import fast_and_slow
 
 
 # pylint: disable=no-self-use,missing-class-docstring,missing-function-docstring

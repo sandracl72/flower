@@ -21,7 +21,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from flwr.common import (
+from ...common import (
     EvaluateRes,
     FitIns,
     FitRes,
@@ -31,9 +31,9 @@ from flwr.common import (
     parameters_to_weights,
     weights_to_parameters,
 )
-from flwr.common.logger import log
-from flwr.server.client_manager import ClientManager
-from flwr.server.client_proxy import ClientProxy
+from ...common.logger import log
+from ...server.client_manager import ClientManager
+from ...server.client_proxy import ClientProxy
 
 from .aggregate import aggregate, weighted_loss_avg
 from .fast_and_slow import is_fast_round, normalize_and_sample

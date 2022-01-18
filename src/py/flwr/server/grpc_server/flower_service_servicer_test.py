@@ -16,8 +16,8 @@
 import unittest
 from unittest.mock import MagicMock, call
 
-from flwr.proto.transport_pb2 import ClientMessage, ServerMessage
-from flwr.server.grpc_server.flower_service_servicer import (
+from ...proto.transport_pb2 import ClientMessage, ServerMessage
+from ...server.grpc_server.flower_service_servicer import (
     FlowerServiceServicer,
     register_client,
 )

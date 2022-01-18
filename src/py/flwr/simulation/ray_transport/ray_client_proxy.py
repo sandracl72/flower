@@ -19,10 +19,10 @@ from typing import Callable, Dict, Union, cast
 
 import ray
 
-from flwr import common
-from flwr.client import Client, NumPyClient
-from flwr.client.numpy_client import NumPyClientWrapper
-from flwr.server.client_proxy import ClientProxy
+from ....flwr import common
+from ...client import Client, NumPyClient
+from ...client.numpy_client import NumPyClientWrapper
+from ...server.client_proxy import ClientProxy
 
 ClientFn = Callable[[str], Client]
 

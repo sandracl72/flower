@@ -20,7 +20,7 @@ import unittest
 import numpy as np
 from numpy.random import default_rng
 
-from flwr.dataset.utils.common import (
+from ...dataset.utils.common import (
     XY,
     combine_partitions,
     create_lda_partitions,

@@ -20,10 +20,10 @@ from unittest.mock import MagicMock
 
 import numpy as np
 
-import flwr
-from flwr.common.typing import Config
-from flwr.proto.transport_pb2 import ClientMessage, Parameters, Scalar
-from flwr.server.grpc_server.grpc_client_proxy import GrpcClientProxy
+from ..... import flwr
+from ...common.typing import Config
+from ...proto.transport_pb2 import ClientMessage, Parameters, Scalar
+from ...server.grpc_server.grpc_client_proxy import GrpcClientProxy
 
 MESSAGE_PARAMETERS = Parameters(tensors=[], tensor_type="np")
 MESSAGE_FIT_RES = ClientMessage(

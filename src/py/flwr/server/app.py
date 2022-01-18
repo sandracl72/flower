@@ -18,13 +18,13 @@
 from logging import INFO
 from typing import Dict, Optional, Tuple
 
-from flwr.common import GRPC_MAX_MESSAGE_LENGTH
-from flwr.common.logger import log
-from flwr.server.client_manager import SimpleClientManager
-from flwr.server.grpc_server.grpc_server import start_grpc_server
-from flwr.server.history import History
-from flwr.server.server import Server
-from flwr.server.strategy import FedAvg, Strategy
+from ..common import GRPC_MAX_MESSAGE_LENGTH
+from ..common.logger import log
+from ..server.client_manager import SimpleClientManager
+from ..server.grpc_server.grpc_server import start_grpc_server
+from ..server.history import History
+from ..server.server import Server
+from ..server.strategy import FedAvg, Strategy
 
 DEFAULT_SERVER_ADDRESS = "[::]:8080"
 

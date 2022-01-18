@@ -17,7 +17,7 @@
 
 from abc import ABC, abstractmethod
 
-from flwr.common import (
+from ..common import (
     EvaluateIns,
     EvaluateRes,
     FitIns,
