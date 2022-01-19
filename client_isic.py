@@ -156,6 +156,7 @@ if __name__ == "__main__":
     parser = ArgumentParser() 
     parser.add_argument("--model", type=str, default='efficientnet') 
     parser.add_argument("--log_interval", type=int, default='100')  
+    parser.add_argument("--num_partitions", type=int, default='10') 
     parser.add_argument("--partition", type=int, default='0')  
     args = parser.parse_args()
 
@@ -166,7 +167,7 @@ if __name__ == "__main__":
 
     # Load data
     trainset, testset, num_examples = utils.load_isic_data()
-    trainset, testset, num_examples = utils.load_partition(trainset, testset, num_examples, idx=args.partition)
+    trainset, testset, num_examples = utils.load_partition(trainset, testset, num_examples, idx=args.partition, num_partitions=args.num_partitions)
     train_loader = DataLoader(trainset, batch_size=32, num_workers=4, shuffle=True) 
     test_loader = DataLoader(testset, batch_size=16, shuffle = False)  
     

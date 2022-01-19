@@ -1,11 +1,11 @@
 #!/bin/bash
 
 python server_advanced.py &
-sleep 2 # Sleep for 2s to give the server enough time to start
+sleep 10 # Sleep for 10s to give the server enough time to start
 
-for i in `seq 0 9`; do
+for i in `seq 0 3`; do
     echo "Starting client $i"
-    python client_isic.py --partition=${i} &
+    python client_isic.py --partition=${i} --num_partitions=5 &
 done
 
 # This will allow you to use CTRL+C to stop all background processes

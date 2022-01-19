@@ -118,7 +118,7 @@ def train(model, train_loader, validate_loader,  epochs = 10, es_patience = 3):
                             
         train_acc = correct / num_examples['trainset']
 
-        val_loss, val_auc_score, val_accuracy, val_f1 = val(model, validate_loader, criterion)
+        val_loss, val_auc_score, val_accuracy, val_f1 = utils.val(model, validate_loader, criterion)
             
         print("Epoch: {}/{}.. ".format(e+1, epochs),
             "Training Loss: {:.3f}.. ".format(running_loss/len(train_loader)),
@@ -136,9 +136,9 @@ def train(model, train_loader, validate_loader,  epochs = 10, es_patience = 3):
         if val_auc_score > best_val:
             best_val = val_auc_score
             patience = es_patience  # Resetting patience since we have new best validation accuracy
-            model_path = os.path.join(f'./melanoma_fl_model_{best_val:.4f}.pth')
-            torch.save(model.state_dict(), model_path)  # Saving current best model
-            print(f'Saving model in {model_path}')
+            # model_path = os.path.join(f'./melanoma_fl_model_{best_val:.4f}.pth')
+            # torch.save(model.state_dict(), model_path)  # Saving current best model
+            # print(f'Saving model in {model_path}')
         else:
             patience -= 1
             if patience == 0:
@@ -148,37 +148,7 @@ def train(model, train_loader, validate_loader,  epochs = 10, es_patience = 3):
     del train_loader, validate_loader, images 
 
     return model
-                
-def val(model, validate_loader, criterion = nn.BCEWithLogitsLoss()):          
-    model.eval()
-    preds=[]            
-    all_labels=[]
-    criterion = nn.BCEWithLogitsLoss()
-    # Turning off gradients for validation, saves memory and computations
-    with torch.no_grad():
-        
-        val_loss = 0 
-    
-        for val_images, val_labels in validate_loader:
-        
-            val_images, val_labels = val_images.to(device), val_labels.to(device)
-        
-            val_output = model(val_images)
-            val_loss += (criterion(val_output, val_labels.view(-1,1))).item() 
-            val_pred = torch.sigmoid(val_output)
-            
-            preds.append(val_pred.cpu())
-            all_labels.append(val_labels.cpu())
-        pred=np.vstack(preds).ravel()
-        pred2 = torch.tensor(pred)
-        val_gt = np.concatenate(all_labels)
-        val_gt2 = torch.tensor(val_gt)
-            
-        val_accuracy = accuracy_score(val_gt2, torch.round(pred2))
-        val_auc_score = roc_auc_score(val_gt, pred)
-        val_f1_score = f1_score(val_gt, np.round(pred))
 
-        return val_loss, val_auc_score, val_accuracy, val_f1_score
 
 
 if __name__ == "__main__":
