@@ -3,7 +3,7 @@ import numpy as np
 import os
 from typing import List, Tuple, Dict
 
-import torch
+import torch 
 from torch.utils.data import DataLoader
 from torch import optim
 import torch.nn as nn 
@@ -15,7 +15,7 @@ from argparse import ArgumentParser
 import src.py.flwr as fl 
 import utils
 from utils import Net, seed_everything  
-
+ 
 from sklearn.metrics import accuracy_score, roc_auc_score, f1_score
 
 import wandb 
@@ -28,6 +28,7 @@ seed_everything(seed)
 
 # Setting up GPU for processing or CPU if GPU isn't available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 
 class Client(fl.client.NumPyClient):
@@ -70,6 +71,7 @@ class Client(fl.client.NumPyClient):
     def evaluate(
         self, parameters: List[np.ndarray], config: Dict[str, str]
     ) -> Tuple[float, int, Dict]:
+        # WE DON'T EVALUATE OUR CLIENTS DECENTRALIZED
         # Set model parameters, evaluate model on local test dataset, return result
         self.set_parameters(parameters)
         loss, auc, accuracy, f1 = utils.val(self.model, self.testloader)
@@ -152,6 +154,7 @@ def train(model, train_loader, validate_loader,  epochs = 10, es_patience = 3):
                 
 
 
+
 if __name__ == "__main__":
     parser = ArgumentParser() 
     parser.add_argument("--model", type=str, default='efficientnet') 
@@ -169,9 +172,10 @@ if __name__ == "__main__":
     trainset, testset, num_examples = utils.load_isic_data()
     trainset, testset, num_examples = utils.load_partition(trainset, testset, num_examples, idx=args.partition, num_partitions=args.num_partitions)
     train_loader = DataLoader(trainset, batch_size=32, num_workers=4, shuffle=True) 
-    test_loader = DataLoader(testset, batch_size=16, shuffle = False)  
+    test_loader = DataLoader(testset, batch_size=16, shuffle = False)   
     
-    # Start client
+    
+    # Start client 
     client = Client(model, train_loader, test_loader, num_examples)
     fl.client.start_numpy_client("0.0.0.0:8080", client)
 

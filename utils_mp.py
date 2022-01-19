@@ -209,6 +209,99 @@ class CustomDataset(Dataset):
         else:
             #return (images)
             return img_path, torch.tensor(images, dtype=torch.float32), torch.tensor(labels, dtype=torch.float32)
+
+
+
+def train(arch, parameters, return_dict, partition, num_partitions = 5, log_interval = 100, epochs = 10, es_patience = 3):
+    # Create model
+    model = load_model(arch)
+    model.to(DEVICE)
+    # Set model parameters, train model, return updated model parameters 
+    if parameters is not None:
+        set_weights(model, parameters)
+    # Load data
+    trainset, testset, num_examples = load_isic_data()
+    trainset, testset, num_examples = load_partition(trainset, testset, num_examples, idx=partition, num_partitions=num_partitions)
+    train_loader = DataLoader(trainset, batch_size=32, num_workers=4, shuffle=True) 
+    test_loader = DataLoader(testset, batch_size=16, shuffle = False)      
+    # Training model
+    print('Starts training...')
+
+    best_val = 0
+    criterion = nn.BCEWithLogitsLoss()
+    # Optimizer (gradient descent):
+    optimizer = optim.Adam(model.parameters(), lr=0.0005) 
+    # Scheduler
+    scheduler = ReduceLROnPlateau(optimizer=optimizer, mode='max', patience=1, verbose=True, factor=0.2)
+
+    patience = es_patience 
+
+    for e in range(epochs):
+        correct = 0
+        running_loss = 0
+        model.train()
+        
+        for i, (images, labels) in enumerate(train_loader):
+
+            images, labels = images.to(DEVICE), labels.to(DEVICE)
+                
+            optimizer.zero_grad()
+            
+            output = model(images) 
+            loss = criterion(output, labels.view(-1,1))  
+            loss.backward()
+            optimizer.step()
+            
+            # Training loss
+            running_loss += loss.item()
+
+            # Number of correct training predictions and training accuracy
+            train_preds = torch.round(torch.sigmoid(output))
+                
+            correct += (train_preds.cpu() == labels.cpu().unsqueeze(1)).sum().item()
+            
+            if i % log_interval == 0: 
+                wandb.log({'training_loss': loss})
+                            
+        train_acc = correct / num_examples["trainset"]
+
+        val_loss, val_auc_score, val_accuracy, val_f1 = val(model, test_loader, criterion)
+            
+        print("Epoch: {}/{}.. ".format(e+1, epochs),
+            "Training Loss: {:.3f}.. ".format(running_loss/len(train_loader)),
+            "Training Accuracy: {:.3f}..".format(train_acc),
+            "Validation Loss: {:.3f}.. ".format(val_loss/len(test_loader)),
+            "Validation Accuracy: {:.3f}".format(val_accuracy),
+            "Validation AUC Score: {:.3f}".format(val_auc_score),
+            "Validation F1 Score: {:.3f}".format(val_f1))
+            
+        wandb.log({'Client/Training acc': train_acc, 'Client/training_loss': running_loss/len(train_loader),
+                    'Client/Validation AUC Score': val_auc_score, 'Client/Validation Acc': val_accuracy, 'Client/Validation Loss': val_loss})
+
+        scheduler.step(val_auc_score)
+                
+        if val_auc_score > best_val:
+            best_val = val_auc_score
+            patience = es_patience  # Resetting patience since we have new best validation accuracy
+            # model_path = os.path.join(f'./melanoma_fl_model_{best_val:.4f}.pth')
+            # torch.save(model.state_dict(), model_path)  # Saving current best model
+            # print(f'Saving model in {model_path}')
+        else:
+            patience -= 1
+            if patience == 0:
+                print('Early stopping. Best Val f1: {:.3f}'.format(best_val))
+                break
+
+    del train_loader, test_loader, images 
+    # Prepare return values
+    return_dict["parameters"] = get_weights(model)
+    return_dict["data_size"] = num_examples["trainset"] 
+    return_dict["train_loss"] = running_loss/len(train_loader)
+    return_dict["train_acc"] = train_acc
+    return_dict["val_loss"] = val_loss/len(test_loader)
+    return_dict["val_acc"] = val_accuracy
+
+
 def val(model, validate_loader, criterion = nn.BCEWithLogitsLoss()):          
     model.eval()
     preds=[]            
@@ -239,3 +332,46 @@ def val(model, validate_loader, criterion = nn.BCEWithLogitsLoss()):
         val_f1_score = f1_score(val_gt, np.round(pred))
 
         return val_loss/len(validate_loader), val_auc_score, val_accuracy, val_f1_score
+
+
+
+def val_mp_server(arch, parameters, return_dict):          
+    # Create model
+    model = load_model(arch)
+    model.to(DEVICE)
+    # Set model parameters, train model, return updated model parameters 
+    if parameters is not None:
+        set_weights(model, parameters)
+    # Load data
+    _, testset, _ = load_isic_data()
+    # trainset, testset, num_examples = load_partition(trainset, testset, num_examples, idx=partition, num_partitions=num_partitions)
+    test_loader = DataLoader(testset, batch_size=16, shuffle = False)      
+    preds=[]            
+    all_labels=[]
+    criterion = nn.BCEWithLogitsLoss()
+    # Turning off gradients for validation, saves memory and computations
+    with torch.no_grad():
+        
+        val_loss = 0 
+    
+        for val_images, val_labels in test_loader:
+        
+            val_images, val_labels = val_images.to(DEVICE), val_labels.to(DEVICE)
+        
+            val_output = model(val_images)
+            val_loss += (criterion(val_output, val_labels.view(-1,1))).item() 
+            val_pred = torch.sigmoid(val_output)
+            
+            preds.append(val_pred.cpu())
+            all_labels.append(val_labels.cpu())
+        pred=np.vstack(preds).ravel()
+        pred2 = torch.tensor(pred)
+        val_gt = np.concatenate(all_labels)
+        val_gt2 = torch.tensor(val_gt)
+            
+        val_accuracy = accuracy_score(val_gt2, torch.round(pred2))
+        val_auc_score = roc_auc_score(val_gt, pred) 
+
+        return_dict['loss'] = val_loss/len(test_loader)
+        return_dict['auc_score'] = val_auc_score
+        return_dict['accuracy'] = val_accuracy 

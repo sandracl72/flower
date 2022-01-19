@@ -1,14 +1,20 @@
 #!/bin/bash
 
-python server_advanced.py &
-sleep 10 # Sleep for 10s to give the server enough time to start
+# Loading script arguments
+NBCLIENTS="${1:-2}" # Nb of clients launched by the script (default to 2)
+NBMINCLIENTS="${2:-2}" # Nb min of clients before launching round (default to 2)
+NBFITCLIENTS="${3:-2}" # Nb of clients sampled for the round (default to 2)
+NBROUNDS="${4:-3}" # Nb of rounds (default to 3)
 
-for i in `seq 0 3`; do
-    echo "Starting client $i"
-    python client_isic.py --partition=${i} --num_partitions=5 &
+python server.py -r $NBROUNDS -fc $NBFITCLIENTS -ac $NBMINCLIENTS &
+sleep 10 # Sleep for N seconds to give the server enough time to start, increase if clients can't connect
+
+for ((nb=0; nb<$NBCLIENTS; nb++)) # for i in `seq 0 9`; do
+    echo "Starting client $nb"
+    python client_isic.py --partition=${nb} --num_partitions=5 &
 done
 
 # This will allow you to use CTRL+C to stop all background processes
-trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM
-# Wait for all background processes to complete
-wait
+trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
+# If still not stopping you can use `killall python` or `killall python3` or ultimately `pkill python`
+sleep 86400
