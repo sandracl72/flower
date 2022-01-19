@@ -7,8 +7,8 @@ import torch
 from argparse import ArgumentParser 
 
 import src.py.flwr as fl 
-import utils
-from utils import Net, seed_everything  
+import utils_mp as utils
+from utils import seed_everything  
 
 import multiprocessing as mp
 
