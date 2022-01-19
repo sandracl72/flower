@@ -96,9 +96,6 @@ if __name__ == "__main__":
     fc = int(args.fc)
     ac = int(args.ac)
 
-    # Set the start method for multiprocessing in case Python version is under 3.8.1
-    mp.set_start_method("spawn") 
-
     # Load model for
         # 1. server-side parameter initialization
         # 2. server-side parameter evaluation
