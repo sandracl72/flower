@@ -209,6 +209,83 @@ class CustomDataset(Dataset):
         else:
             #return (images)
             return img_path, torch.tensor(images, dtype=torch.float32), torch.tensor(labels, dtype=torch.float32)
+
+
+def train(model, train_loader, validate_loader, num_examples, log_interval = 100, epochs = 10, es_patience = 3):
+    # Training model
+    print('Starts training...')
+
+    best_val = 0
+    criterion = nn.BCEWithLogitsLoss()
+    # Optimizer (gradient descent):
+    optimizer = optim.Adam(model.parameters(), lr=0.0005) 
+    # Scheduler
+    scheduler = ReduceLROnPlateau(optimizer=optimizer, mode='max', patience=1, verbose=True, factor=0.2)
+
+    patience = es_patience 
+    model.to(DEVICE)
+
+    for e in range(epochs):
+        correct = 0
+        running_loss = 0
+        model.train()
+        
+        for i, (images, labels) in enumerate(train_loader):
+
+            images, labels = images.to(DEVICE), labels.to(DEVICE)
+                
+            optimizer.zero_grad()
+            
+            output = model(images) 
+            loss = criterion(output, labels.view(-1,1))  
+            loss.backward()
+            optimizer.step()
+            
+            # Training loss
+            running_loss += loss.item()
+
+            # Number of correct training predictions and training accuracy
+            train_preds = torch.round(torch.sigmoid(output))
+                
+            correct += (train_preds.cpu() == labels.cpu().unsqueeze(1)).sum().item()
+            
+            if i % log_interval == 0: 
+                wandb.log({'training_loss': loss})
+                            
+        train_acc = correct / num_examples["trainset"]
+
+        val_loss, val_auc_score, val_accuracy, val_f1 = val(model, validate_loader, criterion)
+            
+        print("Epoch: {}/{}.. ".format(e+1, epochs),
+            "Training Loss: {:.3f}.. ".format(running_loss/len(train_loader)),
+            "Training Accuracy: {:.3f}..".format(train_acc),
+            "Validation Loss: {:.3f}.. ".format(val_loss/len(validate_loader)),
+            "Validation Accuracy: {:.3f}".format(val_accuracy),
+            "Validation AUC Score: {:.3f}".format(val_auc_score),
+            "Validation F1 Score: {:.3f}".format(val_f1))
+            
+        wandb.log({'Client/Training acc': train_acc, 'Client/training_loss': running_loss/len(train_loader),
+                    'Client/Validation AUC Score': val_auc_score, 'Client/Validation Acc': val_accuracy, 'Client/Validation Loss': val_loss})
+
+        scheduler.step(val_auc_score)
+                
+        if val_auc_score > best_val:
+            best_val = val_auc_score
+            patience = es_patience  # Resetting patience since we have new best validation accuracy
+            # model_path = os.path.join(f'./melanoma_fl_model_{best_val:.4f}.pth')
+            # torch.save(model.state_dict(), model_path)  # Saving current best model
+            # print(f'Saving model in {model_path}')
+        else:
+            patience -= 1
+            if patience == 0:
+                print('Early stopping. Best Val f1: {:.3f}'.format(best_val))
+                break
+
+    del train_loader, validate_loader, images 
+
+    return model
+
+
 def val(model, validate_loader, criterion = nn.BCEWithLogitsLoss()):          
     model.eval()
     preds=[]            
