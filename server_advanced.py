@@ -18,6 +18,8 @@ warnings.filterwarnings("ignore")
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+seed = 2022
+utils.seed_everything(seed)
 
 def set_parameters(model, parameters: List[np.ndarray]) -> None:
         # Set model parameters from a list of NumPy ndarrays
@@ -103,13 +105,14 @@ if __name__ == "__main__":
     model_weights = [val.cpu().numpy() for name, val in model.state_dict().items()] #  if 'bn' not in name]
 
     wandb.init(project="dai-healthcare" , entity='eyeforai', config={"model": args.model})
-
+    wandb.config.update(args)
+    
     # Create strategy
     strategy = fl.server.strategy.FedAvg(
         fraction_fit = fc/ac,
-        fraction_eval = 0.2,
+        fraction_eval = 0.2, # not used - no federated evaluation
         min_fit_clients = fc,
-        min_eval_clients = 2,
+        min_eval_clients = 2, # not used 
         min_available_clients = ac,
         eval_fn=get_eval_fn(model),
         on_fit_config_fn=fit_config,

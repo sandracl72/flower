@@ -89,6 +89,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     wandb.init(project="dai-healthcare" , entity='eyeforai', config={"model": args.model})
+    wandb.config.update(args) 
 
     # Load model
     model = utils.load_model(args.model)

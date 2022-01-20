@@ -19,7 +19,8 @@ warnings.filterwarnings("ignore")
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-# TODO: Abstract load data, load model, train etc in utils.py
+seed = 2022
+utils.seed_everything(seed)
 
 
 def get_eval_fn():
@@ -52,7 +53,9 @@ def get_eval_fn():
         del (manager, return_dict, p)
 
         wandb.log({'Server/loss': loss, "Server/accuracy": float(accuracy), "Server/auc": float(auc)})
-
+        
+        return float(loss), {"accuracy": float(accuracy), "auc": float(auc)}
+    
     return evaluate 
         
 
@@ -117,7 +120,8 @@ if __name__ == "__main__":
     del model
 
     wandb.init(project="dai-healthcare" , entity='eyeforai', config={"model": args.model})
-
+    wandb.config.update(args)
+    
     # Create strategy
     strategy = fl.server.strategy.FedAvg(
         fraction_fit = fc/ac,

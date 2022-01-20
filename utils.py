@@ -1,6 +1,7 @@
 from collections import OrderedDict
 import numpy as np 
 import os 
+from typing import List, Tuple, Dict, Optional
 
 import cv2
 from PIL import Image
@@ -53,19 +54,19 @@ def seed_everything(seed_value):
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = True
 
-seed = 1234
+seed = 2022
 seed_everything(seed)
 
 
 def get_weights(model):
     return [val.cpu().numpy() for _, val in model.state_dict().items()]
     
-def set_weights(model, weights) -> None:
+def set_weights(model, weights: List[np.ndarray]) -> None:
     # Set model parameters from a list of NumPy ndarrays
-    keys = [k for k in model.state_dict().keys()]
+    keys = [k for k in model.state_dict().keys()] # if 'bn' not in k]
     params_dict = zip(keys, weights)
-    state_dict = OrderedDict({k: torch.Tensor(v) for k, v in params_dict})
-    model.load_state_dict(state_dict, strict=True) 
+    state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+    model.load_state_dict(state_dict, strict=True)
 
 
 class Net(nn.Module):
@@ -101,7 +102,6 @@ def load_model(model = 'efficientnet'):
     model = Net(arch=arch).to(DEVICE)
 
     return model
-
 
 def create_split(source_dir, n_b, n_m):     
     # Split synthetic dataset  
@@ -211,6 +211,8 @@ class CustomDataset(Dataset):
             return img_path, torch.tensor(images, dtype=torch.float32), torch.tensor(labels, dtype=torch.float32)
 
 
+
+
 def train(model, train_loader, validate_loader, num_examples, log_interval = 100, epochs = 10, es_patience = 3):
     # Training model
     print('Starts training...')
@@ -316,3 +318,46 @@ def val(model, validate_loader, criterion = nn.BCEWithLogitsLoss()):
         val_f1_score = f1_score(val_gt, np.round(pred))
 
         return val_loss/len(validate_loader), val_auc_score, val_accuracy, val_f1_score
+
+
+
+def val_mp_server(arch, parameters, return_dict):          
+    # Create model
+    model = load_model(arch)
+    model.to(DEVICE)
+    # Set model parameters, train model, return updated model parameters 
+    if parameters is not None:
+        set_weights(model, parameters)
+    # Load data
+    _, testset, _ = load_isic_data()
+    # trainset, testset, num_examples = load_partition(trainset, testset, num_examples, idx=partition, num_partitions=num_partitions)
+    test_loader = DataLoader(testset, batch_size=16, shuffle = False)      
+    preds=[]            
+    all_labels=[]
+    criterion = nn.BCEWithLogitsLoss()
+    # Turning off gradients for validation, saves memory and computations
+    with torch.no_grad():
+        
+        val_loss = 0 
+    
+        for val_images, val_labels in test_loader:
+        
+            val_images, val_labels = val_images.to(DEVICE), val_labels.to(DEVICE)
+        
+            val_output = model(val_images)
+            val_loss += (criterion(val_output, val_labels.view(-1,1))).item() 
+            val_pred = torch.sigmoid(val_output)
+            
+            preds.append(val_pred.cpu())
+            all_labels.append(val_labels.cpu())
+        pred=np.vstack(preds).ravel()
+        pred2 = torch.tensor(pred)
+        val_gt = np.concatenate(all_labels)
+        val_gt2 = torch.tensor(val_gt)
+            
+        val_accuracy = accuracy_score(val_gt2, torch.round(pred2))
+        val_auc_score = roc_auc_score(val_gt, pred) 
+
+        return_dict['loss'] = val_loss/len(test_loader)
+        return_dict['auc_score'] = val_auc_score
+        return_dict['accuracy'] = val_accuracy 
