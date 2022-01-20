@@ -7,12 +7,11 @@ NBFITCLIENTS="${3:-2}" # Nb of clients sampled for the round (default to 2)
 NBROUNDS="${4:-5}" # Nb of rounds (default to 3)
 
 python server_advanced.py -r $NBROUNDS -fc $NBFITCLIENTS -ac $NBMINCLIENTS &
-sleep 5 # Sleep for N seconds to give the server enough time to start, increase if clients can't connect
+sleep 10 # Sleep for N seconds to give the server enough time to start, increase if clients can't connect
 
 # for ((nb=0; nb<$NBCLIENTS; nb++))  
 for i in `seq 0 $(expr $NBCLIENTS - 1)`; do   
-    echo "Starting client $i"
-    echo python client_isic.py --partition=${i} --num_partitions=5 &
+    echo "Starting client $i" 
     python client_isic.py --partition=${i} --num_partitions=5 &
 done
 

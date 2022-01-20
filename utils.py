@@ -184,22 +184,40 @@ def load_partition(trainset, testset, num_examples, idx, num_partitions = 5):
     return (train_partition, test_partition, num_examples)
 
 
-def load_experiment_partition(trainset, testset, idx, num_partitions = 5):
+def load_experiment_partition(trainset, testset, num_examples, idx):
     """Load 1/5th of the training and test data to simulate a partition."""
-    assert idx in range(3) 
+    assert idx in range(3)  
+
     if idx==0:
-        trainset = trainset[:2000]
-        testset = testset[:502]
-    elif idx==1:
-        trainset = trainset[5000:10000]
-        testset = testset[510:1765]
+        train_partition = torch.utils.data.Subset(
+            trainset, range(0, 2000)
+        )
+        test_partition = torch.utils.data.Subset(
+            testset, range(0,502)
+        )
+    
+    elif idx==1: 
+        train_partition = torch.utils.data.Subset(
+            trainset, range(5000, 10000)
+        )
+        test_partition = torch.utils.data.Subset(
+            testset, range(600, 1855)
+        )
     else:
-        trainset = trainset[20000:30000]
-        testset = testset[2000:4510]
+        train_partition = torch.utils.data.Subset(
+            trainset, range(10000, 20000)
+        )
+        test_partition = torch.utils.data.Subset(
+            testset, range(2000, 4510)
+        )
+
+    num_examples = {"trainset" : len(train_partition), "testset" : len(test_partition)} 
+
+    return (train_partition, test_partition, num_examples)
 
     num_examples = {"trainset" : len(trainset), "testset" : len(testset)} 
 
-    return (trainset, testset, num_examples)
+    return train_, testset
 
 
 class CustomDataset(Dataset):
