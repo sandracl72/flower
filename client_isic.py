@@ -96,7 +96,8 @@ if __name__ == "__main__":
 
     # Load data
     trainset, testset, num_examples = utils.load_isic_data()
-    trainset, testset, num_examples = utils.load_partition(trainset, testset, num_examples, idx=args.partition, num_partitions=args.num_partitions)
+    # trainset, testset, num_examples = utils.load_partition(trainset, testset, num_examples, idx=args.partition, num_partitions=args.num_partitions)
+    trainset, testset, num_examples = utils.load_experiment_partition(trainset, testset, num_examples, idx=args.partition)
     train_loader = DataLoader(trainset, batch_size=32, num_workers=4, shuffle=True) 
     test_loader = DataLoader(testset, batch_size=16, shuffle = False)   
     

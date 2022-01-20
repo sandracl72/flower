@@ -184,6 +184,24 @@ def load_partition(trainset, testset, num_examples, idx, num_partitions = 5):
     return (train_partition, test_partition, num_examples)
 
 
+def load_experiment_partition(trainset, testset, idx, num_partitions = 5):
+    """Load 1/5th of the training and test data to simulate a partition."""
+    assert idx in range(3) 
+    if idx==0:
+        trainset = trainset[:2000]
+        testset = testset[:502]
+    elif idx==1:
+        trainset = trainset[5000:10000]
+        testset = testset[510:1765]
+    else:
+        trainset = trainset[20000:30000]
+        testset = testset[2000:4510]
+
+    num_examples = {"trainset" : len(trainset), "testset" : len(testset)} 
+
+    return (trainset, testset, num_examples)
+
+
 class CustomDataset(Dataset):
     def __init__(self, df: pd.DataFrame, train: bool = True, transforms= None):
         self.df = df
