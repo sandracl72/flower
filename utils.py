@@ -249,7 +249,7 @@ class CustomDataset(Dataset):
 
 
 
-def train(model, train_loader, validate_loader, num_examples, log_interval = 100, epochs = 10, es_patience = 3):
+def train(model, train_loader, validate_loader, num_examples, partition, log_interval = 100, epochs = 10, es_patience = 3):
     # Training model
     print('Starts training...')
 
@@ -288,7 +288,7 @@ def train(model, train_loader, validate_loader, num_examples, log_interval = 100
             correct += (train_preds.cpu() == labels.cpu().unsqueeze(1)).sum().item()
             
             if i % log_interval == 0: 
-                wandb.log({'training_loss': loss})
+                wandb.log({f'Client{partition}/training_loss': loss})
                             
         train_acc = correct / num_examples["trainset"]
 
@@ -302,13 +302,13 @@ def train(model, train_loader, validate_loader, num_examples, log_interval = 100
             "Validation AUC Score: {:.3f}".format(val_auc_score),
             "Validation F1 Score: {:.3f}".format(val_f1))
             
-        wandb.log({'Client/Training acc': train_acc, 'Client/training_loss': running_loss/len(train_loader),
-                    'Client/Validation AUC Score': val_auc_score, 'Client/Validation Acc': val_accuracy, 'Client/Validation Loss': val_loss})
+        wandb.log({f'Client{partition}/Training acc': train_acc, f'Client{partition}/training_loss': running_loss/len(train_loader),
+                    f'Client{partition}/Validation AUC Score': val_auc_score, f'Client{partition}/Validation Acc': val_accuracy,f'Client{partition}/Validation Loss': val_loss})
 
-        scheduler.step(val_auc_score)
+        scheduler.step(val_accuracy)
                 
-        if val_auc_score > best_val:
-            best_val = val_auc_score
+        if val_accuracy > best_val:
+            best_val = val_accuracy
             patience = es_patience  # Resetting patience since we have new best validation accuracy
             # model_path = os.path.join(f'./melanoma_fl_model_{best_val:.4f}.pth')
             # torch.save(model.state_dict(), model_path)  # Saving current best model
