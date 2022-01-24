@@ -123,6 +123,82 @@ def create_split(source_dir, n_b, n_m):
     return train_id_list, val_id_list  #test_id_list
 
 
+def load_isic_by_patient_client(partition):
+    # Load data
+    df = pd.read_csv('/workspace/melanoma_isic_dataset/train_concat.csv')
+    train_img_dir = '/workspace/melanoma_isic_dataset/train/train/'
+    
+    df['image_name'] = [os.path.join(train_img_dir, df.iloc[index]['image_name'] + '.jpg') for index in range(len(df))]
+
+    # Split by Patient
+    # count = df['patient_id'].value_counts()
+    patient_groups = df.groupby('patient_id')
+    melanoma_groups_list = [patient_groups.get_group(x) for x in patient_groups.groups if patient_groups.get_group(x)['target'].unique().all()==1]
+    benign_groups_list = [patient_groups.get_group(x) for x in patient_groups.groups if patient_groups.get_group(x)['target'].unique().any()==0]
+
+    if partition == 2:
+        df_b = pd.concat(benign_groups_list[800:])  # 20630 samples
+        df_m = pd.concat(melanoma_groups_list[100:500])  # 2231 samples
+        df = pd.concat([df_b, df_m])
+    elif partition ==1:
+        df_b = pd.concat(benign_groups_list[120:800])  # 10560 samples
+        df_m = pd.concat(melanoma_groups_list[500:])  # 1466 samples
+        df = pd.concat([df_b, df_m])
+    else:
+        df_b = pd.concat(benign_groups_list[:120])  # 1921 samples
+        df_m = pd.concat(melanoma_groups_list[:100])  # 491 samples
+        df = pd.concat([df_b, df_m])
+
+    train_split, valid_split = train_test_split(df, stratify=df.target, test_size = 0.20, random_state=42) 
+    
+    train_df=pd.DataFrame(train_split)
+    validation_df=pd.DataFrame(valid_split) 
+    
+    training_dataset = CustomDataset(df = train_df, train = True, transforms = training_transforms ) 
+    testing_dataset = CustomDataset(df = validation_df, train = True, transforms = testing_transforms ) 
+
+    num_examples = {"trainset" : len(training_dataset), "testset" : len(testing_dataset)} 
+    
+    return training_dataset, testing_dataset, num_examples
+
+
+def load_isic_by_patient_server():
+    # Load data
+    df = pd.read_csv('/workspace/melanoma_isic_dataset/train_concat.csv')
+    train_img_dir = '/workspace/melanoma_isic_dataset/train/train/'
+    df['image_name'] = [os.path.join(train_img_dir, df.iloc[index]['image_name'] + '.jpg') for index in range(len(df))]
+
+    # Split by Patient 
+    patient_groups = df.groupby('patient_id')
+    melanoma_groups_list = [patient_groups.get_group(x) for x in patient_groups.groups if patient_groups.get_group(x)['target'].unique().all()==1]
+    benign_groups_list = [patient_groups.get_group(x) for x in patient_groups.groups if patient_groups.get_group(x)['target'].unique().any()==0]
+
+    
+    df_b = pd.concat(benign_groups_list[800:])  # 20630 samples
+    df_m = pd.concat(melanoma_groups_list[100:500])  # 2231 samples
+    df_1 = pd.concat([df_b, df_m])
+    _, valid_split_1 = train_test_split(df_1, stratify=df_1.target, test_size = 0.20, random_state=42) 
+    
+    df_b = pd.concat(benign_groups_list[120:800])  # 10560 samples
+    df_m = pd.concat(melanoma_groups_list[500:])  # 1466 samples
+    df_2 = pd.concat([df_b, df_m])
+    _, valid_split_2 = train_test_split(df_2, stratify=df_2.target, test_size = 0.20, random_state=42) 
+    
+    df_b = pd.concat(benign_groups_list[:120])  # 1921 samples
+    df_m = pd.concat(melanoma_groups_list[:100])  # 491 samples
+    df_3 = pd.concat([df_b, df_m])
+    _, valid_split_3 = train_test_split(df_3, stratify=df_3.target, test_size = 0.20, random_state=42) 
+    
+    valid_split = pd.concat([valid_split_1, valid_split_2, valid_split_3])
+    
+    validation_df=pd.DataFrame(valid_split) 
+    
+    testing_dataset = CustomDataset(df = validation_df, train = True, transforms = testing_transforms ) 
+    
+    return testing_dataset
+
+
+
 def load_isic_data():
     # ISIC Dataset
 
@@ -132,6 +208,7 @@ def load_isic_data():
     df['image_name'] = [os.path.join(train_img_dir, df.iloc[index]['image_name'] + '.jpg') for index in range(len(df))]
 
     train_split, valid_split = train_test_split (df, stratify=df.target, test_size = 0.20, random_state=42) 
+    
     train_df=pd.DataFrame(train_split)
     validation_df=pd.DataFrame(valid_split) 
     

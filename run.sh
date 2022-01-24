@@ -1,10 +1,11 @@
 #!/bin/bash
 
 # Loading script arguments
-NBCLIENTS="${1:-2}" # Nb of clients launched by the script (default to 2)
-NBMINCLIENTS="${2:-2}" # Nb min of clients before launching round (default to 2)
-NBFITCLIENTS="${3:-2}" # Nb of clients sampled for the round (default to 2)
-NBROUNDS="${4:-5}" # Nb of rounds (default to 3)
+NBCLIENTS="${1:-3}" # Nb of clients launched by the script (default to 3)
+NBMINCLIENTS="${2:-3}" # Nb min of clients before launching round (default to 3)
+NBFITCLIENTS="${3:-3}" # Nb of clients sampled for the round (default to 3)
+NBROUNDS="${4:-10}" # Nb of rounds (default to 10)
+NBEPOCHS="${5:-1}" # Nb of epochs per round (default to 1)
 
 python server_advanced.py -r $NBROUNDS -fc $NBFITCLIENTS -ac $NBMINCLIENTS &
 sleep 10 # Sleep for N seconds to give the server enough time to start, increase if clients can't connect
@@ -12,7 +13,7 @@ sleep 10 # Sleep for N seconds to give the server enough time to start, increase
 # for ((nb=0; nb<$NBCLIENTS; nb++))  
 for i in `seq 0 $(expr $NBCLIENTS - 1)`; do   
     echo "Starting client $i" 
-    python client_isic.py --partition=${i} --num_partitions=5 &
+    python client_isic.py --partition=${i} --epochs=1 &
 done
 
 # This will allow you to use CTRL+C to stop all background processes

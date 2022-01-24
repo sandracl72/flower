@@ -32,7 +32,9 @@ def get_eval_fn(model):
     """Return an evaluation function for server-side evaluation."""
 
     # Load data and model here to avoid the overhead of doing it in `evaluate` itself
-    trainset, testset, num_examples = utils.load_isic_data()
+    # trainset, testset, num_examples = utils.load_isic_data()
+    # Exp 2
+    testset = utils.load_isic_by_patient_server()
     # trainset, testset = utils.load_partition(trainset, testset, num_examples, idx=3)  # Use validation set partition 3 for evaluation of the whole model
     testloader = DataLoader(testset, batch_size=16, shuffle = False) 
 
@@ -77,9 +79,10 @@ def evaluate_config(rnd: int):
 if __name__ == "__main__":
 
     parser = ArgumentParser()  
-    parser.add_argument("--model", type=str, default='efficientnet')
+    parser.add_argument("--model", type=str, default='efficientnet-b2')
+    parser.add_argument("--tags", type=str, default='FL - EXP 2: split by patient')
     parser.add_argument(
-        "-r", type=int, default=7, help="Number of rounds for the federated training"
+        "-r", type=int, default=10, help="Number of rounds for the federated training"
     )
     parser.add_argument(
         "-fc",
@@ -104,7 +107,7 @@ if __name__ == "__main__":
     model = utils.load_model(args.model)
     model_weights = [val.cpu().numpy() for name, val in model.state_dict().items()] #  if 'bn' not in name]
 
-    wandb.init(project="dai-healthcare" , entity='eyeforai', config={"model": args.model})
+    wandb.init(project="dai-healthcare" , entity='eyeforai', group='FL', tags=[args.tags] ,config={"model": args.model})
     wandb.config.update(args)
     
     # Create strategy
