@@ -57,7 +57,7 @@ class Client(fl.client.NumPyClient):
         return_dict = manager.dict()
         # Create the process
         p = mp.Process(target=train, args=(args.model, parameters, return_dict, args.partition, 
-                                                    args.num_partitions, args.log_interval, 1))
+                                                    args.num_partitions, args.log_interval, args.epochs))
         # Start the process
         p.start() 
         # Wait for it to end
@@ -99,6 +99,7 @@ def train(arch, parameters, return_dict, partition, num_partitions = 5, log_inte
     # Load data
     trainset, testset, num_examples = utils.load_isic_data()
     trainset, testset, num_examples = utils.load_partition(trainset, testset, num_examples, idx=partition, num_partitions=num_partitions)
+    trainset, testset, num_examples = utils.load_experiment_partition(trainset, testset, num_examples, idx=args.partition)
     train_loader = DataLoader(trainset, batch_size=32, num_workers=4, shuffle=True) 
     test_loader = DataLoader(testset, batch_size=16, shuffle = False)      
     # Training model
@@ -181,13 +182,14 @@ def train(arch, parameters, return_dict, partition, num_partitions = 5, log_inte
 
 if __name__ == "__main__":
     parser = ArgumentParser() 
-    parser.add_argument("--model", type=str, default='efficientnet') 
+    parser.add_argument("--model", type=str, default='efficientnet')  
+    parser.add_argument("--epochs", type=int, default='2')  
     parser.add_argument("--log_interval", type=int, default='100')  
     parser.add_argument("--num_partitions", type=int, default='10') 
     parser.add_argument("--partition", type=int, default='0')  
     args = parser.parse_args()
 
-    wandb.init(project="dai-healthcare" , entity='eyeforai', config={"model": args.model})
+    wandb.init(project="dai-healthcare" , entity='eyeforai', group='FL_mp', tags=['FL mp'], config={"model": args.model})
     wandb.config.update(args)
 
     # Set the start method for multiprocessing in case Python version is under 3.8.1

@@ -87,18 +87,18 @@ if __name__ == "__main__":
     parser = ArgumentParser()  
     parser.add_argument("--model", type=str, default='efficientnet')
     parser.add_argument(
-        "-r", type=int, default=3, help="Number of rounds for the federated training"
+        "-r", type=int, default=7, help="Number of rounds for the federated training"
     )
     parser.add_argument(
         "-fc",
         type=int,
-        default=2,
+        default=3,
         help="Min fit clients, min number of clients to be sampled next round",
     )
     parser.add_argument(
         "-ac",
         type=int,
-        default=2,
+        default=3,
         help="Min available clients, min number of clients that need to connect to the server before training round can start",
     )
     args = parser.parse_args()
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     # del the net as we don't need it anymore
     del model
 
-    wandb.init(project="dai-healthcare" , entity='eyeforai', config={"model": args.model})
+    wandb.init(project="dai-healthcare" , entity='eyeforai', group='mp', tags='mp',config={"model": args.model})
     wandb.config.update(args)
     
     # Create strategy
