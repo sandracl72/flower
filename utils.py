@@ -77,10 +77,10 @@ class Net(nn.Module):
         if 'fgdf' in str(arch.__class__):
             self.arch.fc = nn.Linear(in_features=1280, out_features=500, bias=True)
         if 'EfficientNet' in str(arch.__class__):   
-            self.arch._fc = nn.Linear(in_features=1408, out_features=500, bias=True)
+            self.arch._fc = nn.Linear(in_features=self.arch._fc.in_features, out_features=500, bias=True)
             #self.dropout1 = nn.Dropout(0.2)
         if 'resnet' in str(arch.__class__):   
-            self.arch.fc = nn.Linear(in_features=2048, out_features=500, bias=True)
+            self.arch.fc = nn.Linear(in_features=arch.fc.in_features, out_features=500, bias=True)
             
         self.output = nn.Linear(500, 1)
         
@@ -98,7 +98,7 @@ class Net(nn.Module):
 
 
 def load_model(model = 'efficientnet'):
-    arch = EfficientNet.from_pretrained('efficientnet-b2') if model=='efficientnet' else resnet50(pretrained=True)
+    arch = EfficientNet.from_pretrained(model) if 'efficientnet' in model else resnet50(pretrained=True)
     model = Net(arch=arch).to(DEVICE)
 
     return model
