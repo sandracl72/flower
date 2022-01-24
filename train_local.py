@@ -17,14 +17,16 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 if __name__ == "__main__":
     parser = ArgumentParser() 
-    parser.add_argument("--model", type=str, default='efficientnet') 
+    parser.add_argument("--model", type=str, default='efficientnet-b2') 
+    parser.add_argument("--tags", type=str, default='local_training') 
     parser.add_argument("--log_interval", type=int, default='100')  
     parser.add_argument("--epochs", type=int, default='15')  
+    parser.add_argument("--early_stopping", type=int, default='3')  
     parser.add_argument("--num_partitions", type=int, default='10') 
     parser.add_argument("--partition", type=int, default='0')  
     args = parser.parse_args()
 
-    wandb.init(project="dai-healthcare" , entity='eyeforai', group='local_training', tags=['local_training'], config={"model": args.model})
+    wandb.init(project="dai-healthcare" , entity='eyeforai', group='local_training', tags=[args.tags], config={"model": args.model})
     wandb.config.update(args) 
 
     # Load model
