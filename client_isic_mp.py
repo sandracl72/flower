@@ -182,7 +182,7 @@ def train(arch, parameters, return_dict, partition, num_partitions = 5, log_inte
 
 if __name__ == "__main__":
     parser = ArgumentParser() 
-    parser.add_argument("--model", type=str, default='efficientnet')  
+    parser.add_argument("--model", type=str, default='efficientnet-b2')  
     parser.add_argument("--epochs", type=int, default='2')  
     parser.add_argument("--log_interval", type=int, default='100')  
     parser.add_argument("--num_partitions", type=int, default='10') 

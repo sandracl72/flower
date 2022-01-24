@@ -85,7 +85,7 @@ def evaluate_config(rnd: int):
 if __name__ == "__main__":
 
     parser = ArgumentParser()  
-    parser.add_argument("--model", type=str, default='efficientnet')
+    parser.add_argument("--model", type=str, default='efficientnet-b2')
     parser.add_argument(
         "-r", type=int, default=7, help="Number of rounds for the federated training"
     )
