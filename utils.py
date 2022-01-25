@@ -2,11 +2,11 @@ from collections import OrderedDict
 import numpy as np 
 import os 
 from typing import List, Tuple, Dict, Optional
-
+import random
 import cv2
 from PIL import Image
 import torch
-
+import torchvision
 from pathlib import Path 
 import torch.nn as nn 
 from torch import optim 
@@ -135,21 +135,27 @@ def load_isic_by_patient_client(partition):
     patient_groups = df.groupby('patient_id')
     melanoma_groups_list = [patient_groups.get_group(x) for x in patient_groups.groups if patient_groups.get_group(x)['target'].unique().all()==1]
     benign_groups_list = [patient_groups.get_group(x) for x in patient_groups.groups if patient_groups.get_group(x)['target'].unique().any()==0]
-
+    random.shuffle(melanoma_groups_list)
+    random.shuffle(benign_groups_list)
+    
     if partition == 2:
-        df_b = pd.concat(benign_groups_list[800:])  # 20630 samples
-        df_m = pd.concat(melanoma_groups_list[100:500])  # 2231 samples
-        df = pd.concat([df_b, df_m])
-    elif partition ==1:
-        df_b = pd.concat(benign_groups_list[120:800])  # 10560 samples
-        df_m = pd.concat(melanoma_groups_list[500:])  # 1466 samples
-        df = pd.concat([df_b, df_m])
+        df_b_test = pd.concat(benign_groups_list[800:1030]) # 4151
+        df_b_train = pd.concat(benign_groups_list[1030:])  # 9570 - TOTAL 20630 samples
+        df_m_test = pd.concat(melanoma_groups_list[100:170]) # 468 
+        df_m_train = pd.concat(melanoma_groups_list[170:500])  # 1790 - TOTAL: 2231 samples 
+    elif partition == 1:
+        df_b_test = pd.concat(benign_groups_list[120:250])  #  2082 
+        df_b_train = pd.concat(benign_groups_list[250:800])  # 8479 - TOTAL 10560 samples 
+        df_m_test = pd.concat(melanoma_groups_list[500:610]) # 294
+        df_m_train = pd.concat(melanoma_groups_list[610:]) # 1172 - TOTAL 1466 samples
     else:
-        df_b = pd.concat(benign_groups_list[:120])  # 1921 samples
-        df_m = pd.concat(melanoma_groups_list[:100])  # 491 samples
-        df = pd.concat([df_b, df_m])
-
-    train_split, valid_split = train_test_split(df, stratify=df.target, test_size = 0.20, random_state=42) 
+        df_b_test = pd.concat(benign_groups_list[:30])  # 364 
+        df_b_train = pd.concat(benign_groups_list[30:120]) # 1553 - TOTAL: 1921 samples
+        df_m_test = pd.concat(melanoma_groups_list[:25])  # 105
+        df_m_train = pd.concat(melanoma_groups_list[25:100]) # 386 - TOTAL: 491 samples
+    
+    train_split = pd.concat([df_b_train, df_m_train])
+    valid_split = pd.concat([df_b_test, df_m_test])
     
     train_df=pd.DataFrame(train_split)
     validation_df=pd.DataFrame(valid_split) 
@@ -177,17 +183,17 @@ def load_isic_by_patient_server():
     df_b = pd.concat(benign_groups_list[800:])  # 20630 samples
     df_m = pd.concat(melanoma_groups_list[100:500])  # 2231 samples
     df_1 = pd.concat([df_b, df_m])
-    _, valid_split_1 = train_test_split(df_1, stratify=df_1.target, test_size = 0.20, random_state=42) 
+    _, valid_split_1 = train_test_split(df_1, stratify=df_1.target, test_size = 0.20, random_state=0) 
     
     df_b = pd.concat(benign_groups_list[120:800])  # 10560 samples
     df_m = pd.concat(melanoma_groups_list[500:])  # 1466 samples
     df_2 = pd.concat([df_b, df_m])
-    _, valid_split_2 = train_test_split(df_2, stratify=df_2.target, test_size = 0.20, random_state=42) 
+    _, valid_split_2 = train_test_split(df_2, stratify=df_2.target, test_size = 0.20, random_state=0) 
     
     df_b = pd.concat(benign_groups_list[:120])  # 1921 samples
     df_m = pd.concat(melanoma_groups_list[:100])  # 491 samples
     df_3 = pd.concat([df_b, df_m])
-    _, valid_split_3 = train_test_split(df_3, stratify=df_3.target, test_size = 0.20, random_state=42) 
+    _, valid_split_3 = train_test_split(df_3, stratify=df_3.target, test_size = 0.20, random_state=0) 
     
     valid_split = pd.concat([valid_split_1, valid_split_2, valid_split_3])
     
@@ -290,11 +296,7 @@ def load_experiment_partition(trainset, testset, num_examples, idx):
 
     num_examples = {"trainset" : len(train_partition), "testset" : len(test_partition)} 
 
-    return (train_partition, test_partition, num_examples)
-
-    num_examples = {"trainset" : len(trainset), "testset" : len(testset)} 
-
-    return train_, testset
+    return (train_partition, test_partition, num_examples) 
 
 
 class CustomDataset(Dataset):
@@ -348,7 +350,10 @@ def train(model, train_loader, validate_loader, num_examples, partition, log_int
         for i, (images, labels) in enumerate(train_loader):
 
             images, labels = images.to(DEVICE), labels.to(DEVICE)
-                
+            image_array = torchvision.utils.make_grid(images)
+            images_wndb = wandb.Image(image_array)
+            wandb.log({"training_batch": images_wndb})
+
             optimizer.zero_grad()
             
             output = model(images) 
@@ -365,7 +370,7 @@ def train(model, train_loader, validate_loader, num_examples, partition, log_int
             correct += (train_preds.cpu() == labels.cpu().unsqueeze(1)).sum().item()
             
             if i % log_interval == 0: 
-                wandb.log({f'Client{partition}/training_loss': loss})
+                wandb.log({f'Client{partition}/training_loss': loss, 'epoch':e})
                             
         train_acc = correct / num_examples["trainset"]
 
@@ -379,13 +384,14 @@ def train(model, train_loader, validate_loader, num_examples, partition, log_int
             "Validation AUC Score: {:.3f}".format(val_auc_score),
             "Validation F1 Score: {:.3f}".format(val_f1))
             
-        wandb.log({f'Client{partition}/Training acc': train_acc, f'Client{partition}/training_loss': running_loss/len(train_loader),
+        wandb.log({f'Client{partition}/Training acc': train_acc, f'Client{partition}/training_loss': running_loss/len(train_loader), 'epoch':e,
                     f'Client{partition}/Validation AUC Score': val_auc_score, f'Client{partition}/Validation Acc': val_accuracy,f'Client{partition}/Validation Loss': val_loss})
 
         scheduler.step(val_accuracy)
                 
         if val_accuracy > best_val:
             best_val = val_accuracy
+            wandb.run.summary["best_accuracy"] = val_accuracy
             patience = es_patience  # Resetting patience since we have new best validation accuracy
             # model_path = os.path.join(f'./melanoma_fl_model_{best_val:.4f}.pth')
             # torch.save(model.state_dict(), model_path)  # Saving current best model
@@ -414,7 +420,10 @@ def val(model, validate_loader, criterion = nn.BCEWithLogitsLoss()):
         for val_images, val_labels in validate_loader:
         
             val_images, val_labels = val_images.to(DEVICE), val_labels.to(DEVICE)
-        
+            image_array = torchvision.utils.make_grid(val_images)
+            images_wndb = wandb.Image(image_array)
+            wandb.log({"val_batch": images_wndb})
+
             val_output = model(val_images)
             val_loss += (criterion(val_output, val_labels.view(-1,1))).item() 
             val_pred = torch.sigmoid(val_output)

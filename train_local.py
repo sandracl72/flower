@@ -33,9 +33,10 @@ if __name__ == "__main__":
     model = utils.load_model(args.model)
 
     # Load data
-    trainset, testset, num_examples = utils.load_isic_data()
+    # trainset, testset, num_examples = utils.load_isic_data()
     # trainset, testset, num_examples = utils.load_partition(trainset, testset, num_examples, idx=args.partition, num_partitions=args.num_partitions)
-    trainset, testset, num_examples = utils.load_experiment_partition(trainset, testset, num_examples, idx=args.partition)
+    # trainset, testset, num_examples = utils.load_experiment_partition(trainset, testset, num_examples, idx=args.partition)
+    trainset, testset, num_examples = utils.load_isic_by_patient_client(args.partition) 
     train_loader = DataLoader(trainset, batch_size=32, num_workers=4, shuffle=True) 
     test_loader = DataLoader(testset, batch_size=16, shuffle = False)   
     print(num_examples)
