@@ -12,8 +12,7 @@ import torch.nn as nn
 from torch import optim 
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader 
-from efficientnet_pytorch import EfficientNet
-from torchvision.models import resnet50 
+from efficientnet_pytorch import EfficientNet 
 from torchvision import transforms
 from torch.utils.data import Dataset
 import pandas as pd
@@ -45,6 +44,7 @@ testing_transforms = transforms.Compose([transforms.Resize(256),
 # Creating seeds to make results reproducible
 def seed_everything(seed_value):
     np.random.seed(seed_value)
+    random.seed(seed_value)
     torch.manual_seed(seed_value)
     os.environ['PYTHONHASHSEED'] = str(seed_value)
     
@@ -79,7 +79,7 @@ class Net(nn.Module):
         if 'EfficientNet' in str(arch.__class__):   
             self.arch._fc = nn.Linear(in_features=self.arch._fc.in_features, out_features=500, bias=True)
             #self.dropout1 = nn.Dropout(0.2)
-        if 'resnet' in str(arch.__class__):   
+        else:   
             self.arch.fc = nn.Linear(in_features=arch.fc.in_features, out_features=500, bias=True)
             
         self.output = nn.Linear(500, 1)
@@ -98,7 +98,13 @@ class Net(nn.Module):
 
 
 def load_model(model = 'efficientnet'):
-    arch = EfficientNet.from_pretrained(model) if 'efficientnet' in model else resnet50(pretrained=True)
+    if model == "efficientnet":
+        arch = EfficientNet.from_pretrained(model)
+    elif model == "googlenet":
+        arch = torchvision.models.googlenet(pretrained=True)
+    else:
+        arch = torchvision.models.resnet50(pretrained=True)
+        
     model = Net(arch=arch).to(DEVICE)
 
     return model
@@ -129,33 +135,35 @@ def load_isic_by_patient_client(partition):
     train_img_dir = '/workspace/melanoma_isic_dataset/train/train/'
     
     df['image_name'] = [os.path.join(train_img_dir, df.iloc[index]['image_name'] + '.jpg') for index in range(len(df))]
+    df["patient_id"] = df["patient_id"].fillna('nan')
+    # df.loc[df['patient_id'].isnull()==True]['target'].unique() # 337 rows melanomas
+    
+    # Split by Patient 
+    patient_groups = df.groupby('patient_id') #37311
+    melanoma_groups_list = [patient_groups.get_group(x) for x in patient_groups.groups if patient_groups.get_group(x)['target'].unique().all()==1]  # 4188 - after adding na 4525
+    benign_groups_list = [patient_groups.get_group(x) for x in patient_groups.groups if 0 in patient_groups.get_group(x)['target'].unique()]  # 2055 - 33123
 
-    # Split by Patient
-    # count = df['patient_id'].value_counts()
-    patient_groups = df.groupby('patient_id')
-    melanoma_groups_list = [patient_groups.get_group(x) for x in patient_groups.groups if patient_groups.get_group(x)['target'].unique().all()==1]
-    benign_groups_list = [patient_groups.get_group(x) for x in patient_groups.groups if patient_groups.get_group(x)['target'].unique().any()==0]
-    random.shuffle(melanoma_groups_list)
-    random.shuffle(benign_groups_list)
-    
+    np.random.shuffle(melanoma_groups_list)
+    np.random.shuffle(benign_groups_list)
+
     if partition == 2:
-        df_b_test = pd.concat(benign_groups_list[800:1030]) # 4151
-        df_b_train = pd.concat(benign_groups_list[1030:])  # 9570 - TOTAL 20630 samples
-        df_m_test = pd.concat(melanoma_groups_list[100:170]) # 468 
-        df_m_train = pd.concat(melanoma_groups_list[170:500])  # 1790 - TOTAL: 2231 samples 
+        df_b_test = pd.concat(benign_groups_list[1800:]) # 4462 
+        df_b_train = pd.concat(benign_groups_list[800:1800])  # 16033 - TOTAL 20495 samples 
+        df_m_test = pd.concat(melanoma_groups_list[170:281]) # 340  
+        df_m_train = pd.concat(melanoma_groups_list[281:800])  # 1970 - TOTAL: 2310 samples 
     elif partition == 1:
-        df_b_test = pd.concat(benign_groups_list[120:250])  #  2082 
-        df_b_train = pd.concat(benign_groups_list[250:800])  # 8479 - TOTAL 10560 samples 
-        df_m_test = pd.concat(melanoma_groups_list[500:610]) # 294
-        df_m_train = pd.concat(melanoma_groups_list[610:]) # 1172 - TOTAL 1466 samples
+        df_b_test = pd.concat(benign_groups_list[130:250])  #  1949  
+        df_b_train = pd.concat(benign_groups_list[250:800])  # 8609 - TOTAL 10558 samples  
+        df_m_test = pd.concat(melanoma_groups_list[1230:]) # 303 
+        df_m_train = pd.concat(melanoma_groups_list[800:1230]) # 1407 - TOTAL 1710 samples  
     else:
-        df_b_test = pd.concat(benign_groups_list[:30])  # 364 
-        df_b_train = pd.concat(benign_groups_list[30:120]) # 1553 - TOTAL: 1921 samples
-        df_m_test = pd.concat(melanoma_groups_list[:25])  # 105
-        df_m_train = pd.concat(melanoma_groups_list[25:100]) # 386 - TOTAL: 491 samples
-    
+        df_b_test = pd.concat(benign_groups_list[:30])  # 519
+        df_b_train = pd.concat(benign_groups_list[30:130]) # 1551 - TOTAL: 2070 samples 
+        df_m_test = pd.concat(melanoma_groups_list[:70])  # 191
+        df_m_train = pd.concat(melanoma_groups_list[70:170]) # 314 - TOTAL: 505 samples 
+
     train_split = pd.concat([df_b_train, df_m_train])
-    valid_split = pd.concat([df_b_test, df_m_test])
+    valid_split = pd.concat([df_b_test, df_m_test]) 
     
     train_df=pd.DataFrame(train_split)
     validation_df=pd.DataFrame(valid_split) 
@@ -173,35 +181,50 @@ def load_isic_by_patient_server():
     df = pd.read_csv('/workspace/melanoma_isic_dataset/train_concat.csv')
     train_img_dir = '/workspace/melanoma_isic_dataset/train/train/'
     df['image_name'] = [os.path.join(train_img_dir, df.iloc[index]['image_name'] + '.jpg') for index in range(len(df))]
-
+    df["patient_id"] = df["patient_id"].fillna('nan')
+    # df.loc[df['patient_id'].isnull()==True]['target'].unique() # 337 rows melanomas
+    
     # Split by Patient 
-    patient_groups = df.groupby('patient_id')
-    melanoma_groups_list = [patient_groups.get_group(x) for x in patient_groups.groups if patient_groups.get_group(x)['target'].unique().all()==1]
-    benign_groups_list = [patient_groups.get_group(x) for x in patient_groups.groups if patient_groups.get_group(x)['target'].unique().any()==0]
+    patient_groups = df.groupby('patient_id') #37311
+    melanoma_groups_list = [patient_groups.get_group(x) for x in patient_groups.groups if patient_groups.get_group(x)['target'].unique().all()==1]  # 4188 - after adding na 4525
+    benign_groups_list = [patient_groups.get_group(x) for x in patient_groups.groups if 0 in patient_groups.get_group(x)['target'].unique()]  # 2055 - 33123
 
+    np.random.shuffle(melanoma_groups_list)
+    np.random.shuffle(benign_groups_list)
+
+    df_b_test = pd.concat(benign_groups_list[1800:]) # 4462 
+    df_b_train = pd.concat(benign_groups_list[800:1800])  # 16033 - TOTAL 20495 samples 
+    df_m_test = pd.concat(melanoma_groups_list[170:281]) # 340  
+    df_m_train = pd.concat(melanoma_groups_list[281:800])  # 1970 - TOTAL: 2310 samples 
+    train_split1 = pd.concat([df_b_train, df_m_train])
+    valid_split1 = pd.concat([df_b_test, df_m_test]) 
+
+    df_b_test = pd.concat(benign_groups_list[130:250])  #  1949  
+    df_b_train = pd.concat(benign_groups_list[250:800])  # 8609 - TOTAL 10558 samples  
+    df_m_test = pd.concat(melanoma_groups_list[1230:]) # 303 
+    df_m_train = pd.concat(melanoma_groups_list[800:1230]) # 1407 - TOTAL 1710 samples  
+    train_split2 = pd.concat([df_b_train, df_m_train])
+    valid_split2 = pd.concat([df_b_test, df_m_test]) 
+
+    df_b_test = pd.concat(benign_groups_list[:30])  # 519
+    df_b_train = pd.concat(benign_groups_list[30:130]) # 1551 - TOTAL: 2070 samples 
+    df_m_test = pd.concat(melanoma_groups_list[:70])  # 191
+    df_m_train = pd.concat(melanoma_groups_list[70:170]) # 314 - TOTAL: 505 samples
+    train_split3 = pd.concat([df_b_train, df_m_train])
+    valid_split3 = pd.concat([df_b_test, df_m_test]) 
+
+    train_split = pd.concat([train_split1, train_split2, train_split3])
+    valid_split = pd.concat([valid_split1, valid_split2, valid_split3])
+
+    training_df = pd.DataFrame(train_split)
+    validation_df = pd.DataFrame(valid_split) 
+
+    training_dataset =  CustomDataset(df = training_df, train = True, transforms = testing_transforms ) # 25967b 4137m
+    testing_dataset = CustomDataset(df = validation_df, train = True, transforms = testing_transforms ) # 6575b 969m
+
+    num_examples = {"trainset" : len(training_dataset), "testset" : len(testing_dataset)} 
     
-    df_b = pd.concat(benign_groups_list[800:])  # 20630 samples
-    df_m = pd.concat(melanoma_groups_list[100:500])  # 2231 samples
-    df_1 = pd.concat([df_b, df_m])
-    _, valid_split_1 = train_test_split(df_1, stratify=df_1.target, test_size = 0.20, random_state=0) 
-    
-    df_b = pd.concat(benign_groups_list[120:800])  # 10560 samples
-    df_m = pd.concat(melanoma_groups_list[500:])  # 1466 samples
-    df_2 = pd.concat([df_b, df_m])
-    _, valid_split_2 = train_test_split(df_2, stratify=df_2.target, test_size = 0.20, random_state=0) 
-    
-    df_b = pd.concat(benign_groups_list[:120])  # 1921 samples
-    df_m = pd.concat(melanoma_groups_list[:100])  # 491 samples
-    df_3 = pd.concat([df_b, df_m])
-    _, valid_split_3 = train_test_split(df_3, stratify=df_3.target, test_size = 0.20, random_state=0) 
-    
-    valid_split = pd.concat([valid_split_1, valid_split_2, valid_split_3])
-    
-    validation_df=pd.DataFrame(valid_split) 
-    
-    testing_dataset = CustomDataset(df = validation_df, train = True, transforms = testing_transforms ) 
-    
-    return testing_dataset
+    return training_dataset, testing_dataset, num_examples
 
 
 
@@ -350,9 +373,9 @@ def train(model, train_loader, validate_loader, num_examples, partition, log_int
         for i, (images, labels) in enumerate(train_loader):
 
             images, labels = images.to(DEVICE), labels.to(DEVICE)
-            image_array = torchvision.utils.make_grid(images)
-            images_wndb = wandb.Image(image_array)
-            wandb.log({"training_batch": images_wndb})
+            # image_array = torchvision.utils.make_grid(images)
+            # images_wndb = wandb.Image(image_array)
+            # wandb.log({"training_batch": images_wndb})
 
             optimizer.zero_grad()
             
@@ -420,9 +443,9 @@ def val(model, validate_loader, criterion = nn.BCEWithLogitsLoss()):
         for val_images, val_labels in validate_loader:
         
             val_images, val_labels = val_images.to(DEVICE), val_labels.to(DEVICE)
-            image_array = torchvision.utils.make_grid(val_images)
-            images_wndb = wandb.Image(image_array)
-            wandb.log({"val_batch": images_wndb})
+            # image_array = torchvision.utils.make_grid(val_images)
+            # images_wndb = wandb.Image(image_array)
+            # wandb.log({"val_batch": images_wndb})
 
             val_output = model(val_images)
             val_loss += (criterion(val_output, val_labels.view(-1,1))).item() 
