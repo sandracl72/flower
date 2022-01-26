@@ -9,7 +9,7 @@ import wandb
 import warnings
 
 warnings.filterwarnings("ignore")
-seed = 1234
+seed = 2022
 utils.seed_everything(seed)
 
 # Setting up GPU for processing or CPU if GPU isn't available
@@ -23,9 +23,9 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default='15')  
     parser.add_argument("--early_stopping", type=int, default='3')  
     parser.add_argument("--num_partitions", type=int, default='10') 
-    parser.add_argument("--partition", type=int, default='0')  
+    parser.add_argument("--partition", type=int, default='0', help="To train with the whole dataset use 'whole' ")  
     args = parser.parse_args()
-
+    
     wandb.init(project="dai-healthcare" , entity='eyeforai', group='local_training', tags=[args.tags], config={"model": args.model})
     wandb.config.update(args) 
 
@@ -36,7 +36,12 @@ if __name__ == "__main__":
     # trainset, testset, num_examples = utils.load_isic_data()
     # trainset, testset, num_examples = utils.load_partition(trainset, testset, num_examples, idx=args.partition, num_partitions=args.num_partitions)
     # trainset, testset, num_examples = utils.load_experiment_partition(trainset, testset, num_examples, idx=args.partition)
-    trainset, testset, num_examples = utils.load_isic_by_patient_client(args.partition) 
+    
+    if args.partition == 'whole':
+        trainset, testset, num_examples = utils.load_isic_by_patient_server()
+    else:
+        trainset, testset, num_examples = utils.load_isic_by_patient_client(args.partition) 
+    
     train_loader = DataLoader(trainset, batch_size=32, num_workers=4, shuffle=True) 
     test_loader = DataLoader(testset, batch_size=16, shuffle = False)   
     print(num_examples)

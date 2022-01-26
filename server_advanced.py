@@ -34,7 +34,7 @@ def get_eval_fn(model):
     # Load data and model here to avoid the overhead of doing it in `evaluate` itself
     # trainset, testset, num_examples = utils.load_isic_data()
     # Exp 2
-    testset = utils.load_isic_by_patient_server()
+    _, testset, _ = utils.load_isic_by_patient_server()
     # trainset, testset = utils.load_partition(trainset, testset, num_examples, idx=3)  # Use validation set partition 3 for evaluation of the whole model
     testloader = DataLoader(testset, batch_size=16, shuffle = False) 
 
