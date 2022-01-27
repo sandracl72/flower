@@ -42,8 +42,8 @@ if __name__ == "__main__":
     else:
         trainset, testset, num_examples = utils.load_isic_by_patient_client(args.partition) 
     
-    train_loader = DataLoader(trainset, batch_size=32, num_workers=4, shuffle=True) 
-    test_loader = DataLoader(testset, batch_size=16, shuffle = False)   
+    train_loader = DataLoader(trainset, batch_size=32, num_workers=8, worker_init_fn=utils.seed_worker ,shuffle=True) 
+    test_loader = DataLoader(testset, batch_size=16, num_workers=4, worker_init_fn=utils.seed_worker, shuffle = False)   
     print(num_examples)
     
     utils.train(model, train_loader, test_loader, num_examples, args.partition,args.log_interval, epochs=args.epochs, es_patience=3)

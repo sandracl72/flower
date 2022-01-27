@@ -1,10 +1,10 @@
 from collections import OrderedDict
 import numpy as np 
 import os 
-from typing import List, Tuple, Dict, Optional
+from typing import List 
 import random
 import cv2
-from PIL import Image
+from PIL import Image 
 import torch
 import torchvision
 from pathlib import Path 
@@ -41,6 +41,11 @@ testing_transforms = transforms.Compose([transforms.Resize(256),
                                         transforms.Normalize([0.485, 0.456, 0.406], 
                                                             [0.229, 0.224, 0.225])])
 
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
 # Creating seeds to make results reproducible
 def seed_everything(seed_value):
     np.random.seed(seed_value)
@@ -52,7 +57,7 @@ def seed_everything(seed_value):
         torch.cuda.manual_seed(seed_value)
         torch.cuda.manual_seed_all(seed_value)
         torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = True
+        torch.backends.cudnn.benchmark = False
 
 seed = 2022
 seed_everything(seed)
@@ -168,7 +173,7 @@ def load_isic_by_patient_client(partition):
     train_df=pd.DataFrame(train_split)
     validation_df=pd.DataFrame(valid_split) 
     
-    training_dataset = CustomDataset(df = train_df, train = True, transforms = training_transforms ) 
+    training_dataset = CustomDataset(df = train_df, train = True, transforms = training_transforms) 
     testing_dataset = CustomDataset(df = validation_df, train = True, transforms = testing_transforms ) 
 
     num_examples = {"trainset" : len(training_dataset), "testset" : len(testing_dataset)} 
@@ -362,8 +367,7 @@ def train(model, train_loader, validate_loader, num_examples, partition, log_int
     # Scheduler
     scheduler = ReduceLROnPlateau(optimizer=optimizer, mode='max', patience=1, verbose=True, factor=0.2)
 
-    patience = es_patience 
-    model.to(DEVICE)
+    patience = es_patience
 
     for e in range(epochs):
         correct = 0
@@ -410,11 +414,11 @@ def train(model, train_loader, validate_loader, num_examples, partition, log_int
         wandb.log({f'Client{partition}/Training acc': train_acc, f'Client{partition}/training_loss': running_loss/len(train_loader), 'epoch':e,
                     f'Client{partition}/Validation AUC Score': val_auc_score, f'Client{partition}/Validation Acc': val_accuracy,f'Client{partition}/Validation Loss': val_loss})
 
-        scheduler.step(val_accuracy)
+        scheduler.step(val_auc_score)
                 
-        if val_accuracy > best_val:
-            best_val = val_accuracy
-            wandb.run.summary["best_accuracy"] = val_accuracy
+        if val_auc_score > best_val:
+            best_val = val_auc_score
+            wandb.run.summary["best_auc_score"] = val_auc_score
             patience = es_patience  # Resetting patience since we have new best validation accuracy
             # model_path = os.path.join(f'./melanoma_fl_model_{best_val:.4f}.pth')
             # torch.save(model.state_dict(), model_path)  # Saving current best model
