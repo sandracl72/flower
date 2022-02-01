@@ -103,7 +103,7 @@ class Net(nn.Module):
 
 
 def load_model(model = 'efficientnet'):
-    if model == "efficientnet":
+    if "efficientnet" in model:
         arch = EfficientNet.from_pretrained(model)
     elif model == "googlenet":
         arch = torchvision.models.googlenet(pretrained=True)
@@ -356,7 +356,7 @@ class CustomDataset(Dataset):
 
 
 
-def train(model, train_loader, validate_loader, num_examples, partition, log_interval = 100, epochs = 10, es_patience = 3):
+def train(model, train_loader, validate_loader, num_examples, partition, nowandb, log_interval = 100, epochs = 10, es_patience = 3):
     # Training model
     print('Starts training...')
 
@@ -396,7 +396,7 @@ def train(model, train_loader, validate_loader, num_examples, partition, log_int
                 
             correct += (train_preds.cpu() == labels.cpu().unsqueeze(1)).sum().item()
             
-            if i % log_interval == 0: 
+            if i % log_interval == 0 and not nowandb: 
                 wandb.log({f'Client{partition}/training_loss': loss, 'epoch':e})
                             
         train_acc = correct / num_examples["trainset"]
@@ -411,14 +411,17 @@ def train(model, train_loader, validate_loader, num_examples, partition, log_int
             "Validation AUC Score: {:.3f}".format(val_auc_score),
             "Validation F1 Score: {:.3f}".format(val_f1))
             
-        wandb.log({f'Client{partition}/Training acc': train_acc, f'Client{partition}/training_loss': running_loss/len(train_loader), 'epoch':e,
+        if not nowandb:
+            wandb.log({f'Client{partition}/Training acc': train_acc, f'Client{partition}/training_loss': running_loss/len(train_loader), 'epoch':e,
                     f'Client{partition}/Validation AUC Score': val_auc_score, f'Client{partition}/Validation Acc': val_accuracy,f'Client{partition}/Validation Loss': val_loss})
 
         scheduler.step(val_auc_score)
                 
         if val_auc_score > best_val:
             best_val = val_auc_score
-            wandb.run.summary["best_auc_score"] = val_auc_score
+            if not nowandb:
+                wandb.run.summary["best_auc_score"] = val_auc_score
+                wandb.run.summary["best_acc_score"] = val_accuracy
             patience = es_patience  # Resetting patience since we have new best validation accuracy
             # model_path = os.path.join(f'./melanoma_fl_model_{best_val:.4f}.pth')
             # torch.save(model.state_dict(), model_path)  # Saving current best model

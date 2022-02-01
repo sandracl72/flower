@@ -64,7 +64,8 @@ class Client(fl.client.NumPyClient):
     ) -> Tuple[List[np.ndarray], int, Dict]:
         # Set model parameters, train model, return updated model parameters
         self.set_parameters(parameters)
-        utils.train(self.model, self.trainloader, self.testloader, self.num_examples, args.partition, args.log_interval, epochs=args.epochs, es_patience=3)
+        utils.train(self.model, self.trainloader, self.testloader, self.num_examples, args.partition, 
+                                args.nowandb, args.log_interval, epochs=args.epochs, es_patience=3)
         return self.get_parameters(), self.num_examples["trainset"], {}
 
     def evaluate(
@@ -86,11 +87,12 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default='2')  
     parser.add_argument("--num_partitions", type=int, default='10') 
     parser.add_argument("--partition", type=int, default='0')   
+    parser.add_argument("--nowandb", action="store_true") 
     args = parser.parse_args()
 
-
-    wandb.init(project="dai-healthcare" , entity='eyeforai', group='FL', config={"model": args.model})
-    wandb.config.update(args) 
+    if not args.nowandb:
+        wandb.init(project="dai-healthcare" , entity='eyeforai', group='FL', config={"model": args.model})
+        wandb.config.update(args) 
 
     # Load model
     model = utils.load_model(args.model)
