@@ -87,7 +87,7 @@ def get_eval_fn(model):
     
     # Exp 2
     #_, testset, _ = utils.load_isic_by_patient_server()
-    testloader = DataLoader(testset, batch_size=16, num_workers=4, worker_init_fn=utils.seed_worker, shuffle = False)  
+    testloader = DataLoader(testset, batch_size=32, num_workers=4, worker_init_fn=utils.seed_worker, shuffle = False)  
     # The `evaluate` function will be called after every round
     def evaluate(
         weights: fl.common.Weights,
@@ -95,7 +95,20 @@ def get_eval_fn(model):
         # Update model with the latest parameters 
         set_parameters(model, weights) 
         loss, auc, accuracy, f1 = utils.val(model, testloader, criterion = nn.BCEWithLogitsLoss()) 
-
+        """ 
+        index_pos_list = [ i for i in range(len(keys)) if 'num_batches' in keys[i]]
+        for i in index_pos_list:
+            weights[i] = 96
+        actual_weights = [val.cpu().numpy() for _, val in model.state_dict().items()]
+        OTRO: [ np.sum(np.abs(x - y)) for x, y in zip(weights, actual_weights) ]
+        equal=np.array([(weights[i] == actual_weights[i]).all() for i in range(len(weights))])
+        indexes = list(np.where(equal==False)[0])
+        keys = [k for k in model.state_dict().keys()] 
+        out = []
+        for i in range(len(equal)):
+            for o, a in (weights[i], actual_weights[i]):
+                if equal[i]==False:
+                    out.append([o,a]) """
         
         if not args.nowandb:
             wandb.log({'Server/loss': loss, "Server/accuracy": float(accuracy)})
@@ -160,7 +173,7 @@ if __name__ == "__main__":
         # 1. server-side parameter initialization
         # 2. server-side parameter evaluation
     model = utils.load_model(args.model).eval()
-    model_weights = [val.cpu().numpy() for name, val in model.state_dict().items()] #  if 'bn' not in name] 
+    #model_weights = [val.cpu().numpy() for name, val in model.state_dict().items()] #  if 'bn' not in name] 
 
     if not args.nowandb:
         wandb.init(project="dai-healthcare" , entity='eyeforai', group='FL', tags=[args.tags] ,config={"model": args.model})
@@ -177,7 +190,7 @@ if __name__ == "__main__":
         eval_fn=get_eval_fn(model),
         #on_fit_config_fn=fit_config,
         #on_evaluate_config_fn=evaluate_config,
-        initial_parameters= fl.common.weights_to_parameters(model_weights),  
+        initial_parameters= fl.common.weights_to_parameters(get_parameters(model)),  
     )
 
     fl.server.start_server("0.0.0.0:8080", config={"num_rounds": rounds}, strategy=strategy) 
