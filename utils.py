@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# File       : utils.py
+# Modified   : 17.02.2022
+# By         : Sandra Carrasco <sandra.carrasco@ai.se>
+
 from collections import OrderedDict
 import numpy as np 
 import os 
@@ -102,7 +108,7 @@ class Net(nn.Module):
         return output
 
 
-def load_model(model = 'efficientnet'):
+def load_model(model = 'efficientnet-b2'):
     if "efficientnet" in model:
         arch = EfficientNet.from_pretrained(model)
     elif model == "googlenet":
@@ -434,14 +440,13 @@ def train(model, train_loader, validate_loader, num_examples, partition, nowandb
 
     del train_loader, validate_loader, images 
 
-    return model
+    return model.eval()
 
 
 def val(model, validate_loader, criterion = nn.BCEWithLogitsLoss()):          
     model.eval()
     preds=[]            
-    all_labels=[]
-    criterion = nn.BCEWithLogitsLoss()
+    all_labels=[] 
     # Turning off gradients for validation, saves memory and computations
     with torch.no_grad():
         
@@ -454,6 +459,8 @@ def val(model, validate_loader, criterion = nn.BCEWithLogitsLoss()):
             # images_wndb = wandb.Image(image_array)
             # wandb.log({"val_batch": images_wndb})
 
+            # weights=[val.cpu().numpy() for _, val in model.state_dict().items()]
+            # sum([np.isnan(w).sum() for w in weights ]) 
             val_output = model(val_images)
             val_loss += (criterion(val_output, val_labels.view(-1,1))).item() 
             val_pred = torch.sigmoid(val_output)
