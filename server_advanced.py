@@ -95,20 +95,7 @@ def get_eval_fn(model):
         # Update model with the latest parameters 
         set_parameters(model, weights) 
         loss, auc, accuracy, f1 = utils.val(model, testloader, criterion = nn.BCEWithLogitsLoss()) 
-        """ 
-        index_pos_list = [ i for i in range(len(keys)) if 'num_batches' in keys[i]]
-        for i in index_pos_list:
-            weights[i] = 96
-        actual_weights = [val.cpu().numpy() for _, val in model.state_dict().items()]
-        OTRO: [ np.sum(np.abs(x - y)) for x, y in zip(weights, actual_weights) ]
-        equal=np.array([(weights[i] == actual_weights[i]).all() for i in range(len(weights))])
-        indexes = list(np.where(equal==False)[0])
-        keys = [k for k in model.state_dict().keys()] 
-        out = []
-        for i in range(len(equal)):
-            for o, a in (weights[i], actual_weights[i]):
-                if equal[i]==False:
-                    out.append([o,a]) """
+
         
         if not args.nowandb:
             wandb.log({'Server/loss': loss, "Server/accuracy": float(accuracy)})
