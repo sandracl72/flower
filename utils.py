@@ -239,11 +239,11 @@ def load_isic_by_patient_server():
 
 
 
-def load_isic_data():
+def load_isic_data(path='/workspace/melanoma_isic_dataset'):
     # ISIC Dataset
 
-    df = pd.read_csv('/workspace/melanoma_isic_dataset/train_concat.csv')
-    train_img_dir = '/workspace/melanoma_isic_dataset/train/train/'
+    df = pd.read_csv(os.path.join(path, 'train_concat.csv'))
+    train_img_dir = os.path.join(path, 'train/train/')
     
     df['image_name'] = [os.path.join(train_img_dir, df.iloc[index]['image_name'] + '.jpg') for index in range(len(df))]
 
@@ -341,9 +341,7 @@ class CustomDataset(Dataset):
     def __len__(self):
         return len(self.df)
     def __getitem__(self, index):
-        img_path = self.df.iloc[index]['image_name']
-        rgb_img = cv2.imread(img_path, 1)[:, :, ::-1]
-        rgb_img = np.float32(rgb_img) / 255
+        img_path = self.df.iloc[index]['image_name'] 
         images =Image.open(img_path)
 
         if self.transforms:

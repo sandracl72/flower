@@ -26,6 +26,7 @@ seed_everything(seed)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 EXCLUDE_LIST = [
+    "running",
     "num_batches_tracked",
 ]
 
@@ -68,7 +69,7 @@ class Client(fl.client.NumPyClient):
             # Check if this tensor should be included or not
             exclude = False
             for forbidden_ending in EXCLUDE_LIST:
-                if name.endswith(forbidden_ending):
+                if forbidden_ending in name:
                     exclude = True
             if exclude:
                 continue
@@ -85,7 +86,7 @@ class Client(fl.client.NumPyClient):
             # Check if this tensor should be included or not
             exclude = False
             for forbidden_ending in EXCLUDE_LIST:
-                if name.endswith(forbidden_ending):
+                if forbidden_ending in name:
                     exclude = True
             if exclude:
                 continue

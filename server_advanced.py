@@ -25,6 +25,7 @@ warnings.filterwarnings("ignore")
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 EXCLUDE_LIST = [
     "num_batches_tracked",
+    "running",
 ]
 seed = 2022
 utils.seed_everything(seed)
@@ -46,7 +47,7 @@ def get_parameters(net) -> List[np.ndarray]:
             # Check if this tensor should be included or not
             exclude = False
             for forbidden_ending in EXCLUDE_LIST:
-                if name.endswith(forbidden_ending):
+                if forbidden_ending in name:
                     exclude = True
             if exclude:
                 continue
@@ -63,7 +64,7 @@ def set_parameters(net, parameters):
             # Check if this tensor should be included or not
             exclude = False
             for forbidden_ending in EXCLUDE_LIST:
-                if name.endswith(forbidden_ending):
+                if forbidden_ending in name:
                     exclude = True
             if exclude:
                 continue
@@ -95,7 +96,20 @@ def get_eval_fn(model):
         # Update model with the latest parameters 
         set_parameters(model, weights) 
         loss, auc, accuracy, f1 = utils.val(model, testloader, criterion = nn.BCEWithLogitsLoss()) 
-
+        """ 
+        index_pos_list = [ i for i in range(len(keys)) if 'num_batches' in keys[i]]
+        for i in index_pos_list:
+            weights[i] = 96
+        actual_weights = [val.cpu().numpy() for _, val in model.state_dict().items()]
+        OTRO: [ np.sum(np.abs(x - y)) for x, y in zip(weights, actual_weights) ]
+        equal=np.array([(weights[i] == actual_weights[i]).all() for i in range(len(weights))])
+        indexes = list(np.where(equal==False)[0])
+        keys = [k for k in model.state_dict().keys()] 
+        out = []
+        for i in range(len(equal)):
+            for o, a in (weights[i], actual_weights[i]):
+                if equal[i]==False:
+                    out.append([o,a]) """
         
         if not args.nowandb:
             wandb.log({'Server/loss': loss, "Server/accuracy": float(accuracy)})
