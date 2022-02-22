@@ -24,8 +24,8 @@ warnings.filterwarnings("ignore")
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 EXCLUDE_LIST = [
-    "num_batches_tracked",
-    "running",
+    #"num_batches_tracked",
+    #"running",
 ]
 seed = 2022
 utils.seed_everything(seed)
@@ -73,7 +73,7 @@ def set_parameters(net, parameters):
             keys.append(name)
 
         params_dict = zip(keys, parameters)
-        state_dict = OrderedDict({k: torch.Tensor(v) for k, v in params_dict})
+        state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
         net.load_state_dict(state_dict, strict=False)
 
         
@@ -83,11 +83,14 @@ def get_eval_fn(model):
     # Load data and model here to avoid the overhead of doing it in `evaluate` itself
 
     # Exp 1
-    trainset, testset, num_examples = utils.load_isic_data()
-    trainset, testset, num_examples = utils.load_partition(trainset, testset, num_examples, idx=3, num_partitions=10)  # Use validation set partition 3 for evaluation of the whole model
+    # trainset, testset, num_examples = utils.load_isic_data()
+    # trainset, testset, num_examples = utils.load_partition(trainset, testset, num_examples, idx=3, num_partitions=10)  # Use validation set partition 3 for evaluation of the whole model
     
     # Exp 2
     #_, testset, _ = utils.load_isic_by_patient_server()
+
+    # Exp 3
+    testset = utils.load_isic_by_patient(partition=-1)
     testloader = DataLoader(testset, batch_size=32, num_workers=4, worker_init_fn=utils.seed_worker, shuffle = False)  
     # The `evaluate` function will be called after every round
     def evaluate(
@@ -182,7 +185,7 @@ if __name__ == "__main__":
         # wandb.watch(model, log='all')
     
     # Create strategy
-    strategy = fl.server.strategy.FedYogi(
+    strategy = fl.server.strategy.FedAvg(
         fraction_fit = fc/ac,
         fraction_eval = 0.2, # not used - no federated evaluation
         min_fit_clients = fc,

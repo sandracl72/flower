@@ -140,7 +140,7 @@ def create_split(source_dir, n_b, n_m):
     return train_id_list, val_id_list  #test_id_list
 
 
-def load_isic_by_patient_client(partition):
+def load_isic_by_patient(partition):
     # Load data
     df = pd.read_csv('/workspace/melanoma_isic_dataset/train_concat.csv')
     train_img_dir = '/workspace/melanoma_isic_dataset/train/train/'
@@ -151,12 +151,38 @@ def load_isic_by_patient_client(partition):
     
     # Split by Patient 
     patient_groups = df.groupby('patient_id') #37311
-    melanoma_groups_list = [patient_groups.get_group(x) for x in patient_groups.groups if patient_groups.get_group(x)['target'].unique().all()==1]  # 4188 - after adding na 4525
+    # Split by Patient and Class 
+    melanoma_groups_list = [patient_groups.get_group(x) for x in patient_groups.groups if patient_groups.get_group(x)['target'].unique().all()==1]  # 4188 - after adding ID na 4525
     benign_groups_list = [patient_groups.get_group(x) for x in patient_groups.groups if 0 in patient_groups.get_group(x)['target'].unique()]  # 2055 - 33123
 
     np.random.shuffle(melanoma_groups_list)
     np.random.shuffle(benign_groups_list)
 
+    if partition == 2:
+        df_b = pd.concat(benign_groups_list[:90])  # 1348 
+        df_m = pd.concat(melanoma_groups_list[:60])  # 235 (15% melanomas)  T=1583
+        df = pd.concat([df_b, df_m])
+        train_split, valid_split = train_test_split(df, stratify=df.target, test_size = 0.20, random_state=42)
+    elif partition == 1:
+        df_b = pd.concat(benign_groups_list[90:150])  # 937 
+        df_m = pd.concat(melanoma_groups_list[60:90])  # 99 (10% melanomas)  T=1036
+        df = pd.concat([df_b, df_m])
+        train_split, valid_split = train_test_split(df, stratify=df.target, test_size = 0.20, random_state=42)
+    elif partition == 0:
+        df_b = pd.concat(benign_groups_list[150:170])  # 246 
+        df_m = pd.concat(melanoma_groups_list[90:300])  # 626 (72% melanomas)  T=872
+        df = pd.concat([df_b, df_m])
+        train_split, valid_split = train_test_split(df, stratify=df.target, test_size = 0.20, random_state=42)
+    else:
+        #server
+        df_b = pd.concat(benign_groups_list[170:370])  # 3343 
+        df_m = pd.concat(melanoma_groups_list[300:1000])  # 2603 
+        valid_split = pd.concat([df_b, df_m])
+        validation_df=pd.DataFrame(valid_split) 
+        testing_dataset = CustomDataset(df = validation_df, train = True, transforms = testing_transforms ) 
+        return testing_dataset
+
+    """ 
     if partition == 2:
         df_b_test = pd.concat(benign_groups_list[1800:]) # 4462 
         df_b_train = pd.concat(benign_groups_list[800:1800])  # 16033 - TOTAL 20495 samples 
@@ -172,10 +198,10 @@ def load_isic_by_patient_client(partition):
         df_b_train = pd.concat(benign_groups_list[30:130]) # 1551 - TOTAL: 2070 samples 
         df_m_test = pd.concat(melanoma_groups_list[:70])  # 191
         df_m_train = pd.concat(melanoma_groups_list[70:170]) # 314 - TOTAL: 505 samples 
-
+    
     train_split = pd.concat([df_b_train, df_m_train])
     valid_split = pd.concat([df_b_test, df_m_test]) 
-    
+    """
     train_df=pd.DataFrame(train_split)
     validation_df=pd.DataFrame(valid_split) 
     
@@ -284,7 +310,7 @@ def load_synthetic_data(data_path, n_imgs):
 
 
 def load_partition(trainset, testset, num_examples, idx, num_partitions = 5):
-    """Load 1/5th of the training and test data to simulate a partition."""
+    """Load 1/num_partitions of the training and test data to simulate a partition."""
     assert idx in range(num_partitions) 
     n_train = int(num_examples["trainset"] / num_partitions)
     n_test = int(num_examples["testset"] / num_partitions)
@@ -301,7 +327,7 @@ def load_partition(trainset, testset, num_examples, idx, num_partitions = 5):
     return (train_partition, test_partition, num_examples)
 
 
-def load_experiment_partition(trainset, testset, num_examples, idx):
+def load_exp1_partition(trainset, testset, num_examples, idx):
     """Load 1/5th of the training and test data to simulate a partition."""
     assert idx in range(3)  
 

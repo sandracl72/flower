@@ -26,8 +26,8 @@ seed_everything(seed)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 EXCLUDE_LIST = [
-    "running",
-    "num_batches_tracked",
+#    "running",
+#    "num_batches_tracked",
 ]
 
 class Client(fl.client.NumPyClient):
@@ -95,7 +95,7 @@ class Client(fl.client.NumPyClient):
             keys.append(name)
 
         params_dict = zip(keys, parameters)
-        state_dict = OrderedDict({k: torch.Tensor(v) for k, v in params_dict})
+        state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
         self.model.load_state_dict(state_dict, strict=False)
     
 
@@ -139,12 +139,13 @@ if __name__ == "__main__":
         # wandb.watch(model, log="all")
     
     # Load data
-    trainset, testset, num_examples = utils.load_isic_by_patient_client(args.partition)
     # Normal partition
-    trainset, testset, num_examples = utils.load_isic_data()
-    trainset, testset, num_examples = utils.load_partition(trainset, testset, num_examples, idx=args.partition, num_partitions=args.num_partitions)
+    # trainset, testset, num_examples = utils.load_isic_data()
+    # trainset, testset, num_examples = utils.load_partition(trainset, testset, num_examples, idx=args.partition, num_partitions=args.num_partitions)
     # Exp 1
-    # trainset, testset, num_examples = utils.load_experiment_partition(trainset, testset, num_examples, idx=args.partition)
+    # trainset, testset, num_examples = utils.load_exp1_partition(trainset, testset, num_examples, idx=args.partition)
+    # Exp 2/3
+    trainset, testset, num_examples = utils.load_isic_by_patient(args.partition)
     train_loader = DataLoader(trainset, batch_size=32, num_workers=4, worker_init_fn=utils.seed_worker, shuffle=True) 
     test_loader = DataLoader(testset, batch_size=16, num_workers=4, worker_init_fn=utils.seed_worker, shuffle = False)   
     
