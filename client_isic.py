@@ -12,7 +12,8 @@ from torch.utils.data import DataLoader
 from argparse import ArgumentParser 
 import src.py.flwr as fl 
 import utils
-from utils import Net, seed_everything   
+from utils import Net, seed_everything  , training_transforms, testing_transforms
+
 
 import wandb 
 
@@ -26,8 +27,9 @@ seed_everything(seed)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 EXCLUDE_LIST = [
-#    "running",
-#    "num_batches_tracked",
+    "running",
+    "num_batches_tracked",
+#"bn",
 ]
 
 class Client(fl.client.NumPyClient):
@@ -127,6 +129,7 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default='2')  
     parser.add_argument("--num_partitions", type=int, default='20') 
     parser.add_argument("--partition", type=int, default='0')   
+    parser.add_argument("--tags", type=str, default='Exp 3. FedAdagrad') 
     parser.add_argument("--nowandb", action="store_true") 
     args = parser.parse_args()
 
@@ -134,7 +137,7 @@ if __name__ == "__main__":
     model = utils.load_model(args.model)
 
     if not args.nowandb:
-        wandb.init(project="dai-healthcare" , entity='eyeforai', group='FL', config={"model": args.model})
+        wandb.init(project="dai-healthcare" , entity='eyeforai', group='FL', tags=[args.tags], config={"model": args.model})
         wandb.config.update(args) 
         # wandb.watch(model, log="all")
     
@@ -145,7 +148,9 @@ if __name__ == "__main__":
     # Exp 1
     # trainset, testset, num_examples = utils.load_exp1_partition(trainset, testset, num_examples, idx=args.partition)
     # Exp 2/3
-    trainset, testset, num_examples = utils.load_isic_by_patient(args.partition)
+    train_df, validation_df, num_examples = utils.load_isic_by_patient(args.partition)
+    trainset = utils.CustomDataset(df = train_df, train = True, transforms = training_transforms) 
+    testset = utils.CustomDataset(df = validation_df, train = True, transforms = testing_transforms ) 
     train_loader = DataLoader(trainset, batch_size=32, num_workers=4, worker_init_fn=utils.seed_worker, shuffle=True) 
     test_loader = DataLoader(testset, batch_size=16, num_workers=4, worker_init_fn=utils.seed_worker, shuffle = False)   
     

@@ -4,7 +4,6 @@
 # Modified   : 17.02.2022
 # By         : Sandra Carrasco <sandra.carrasco@ai.se>
 
-from tkinter import image_names
 import torch 
 from torch.utils.data import DataLoader 
 from argparse import ArgumentParser 
@@ -14,6 +13,7 @@ import utils
 import wandb 
 
 import warnings
+from utils import training_transforms, testing_transforms
 
 warnings.filterwarnings("ignore")
 seed = 2022
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     parser = ArgumentParser() 
     parser.add_argument("--model", type=str, default='efficientnet-b2') 
     parser.add_argument("--path_data", type=str, default='/workspace/melanoma_isic_dataset') 
-    parser.add_argument("--tags", type=str, default='local_training Exp 3', help="Use 'whole' for training with whole dataset") 
+    parser.add_argument("--tags", type=str, default='local_training Exp 3 - test global', help="Use 'whole' for training with whole dataset") 
     parser.add_argument("--log_interval", type=int, default='100')  
     parser.add_argument("--epochs", type=int, default='20')  
     parser.add_argument("--early_stopping", type=int, default='3')  
@@ -44,31 +44,23 @@ if __name__ == "__main__":
     model = utils.load_model(args.model)
 
     # Load data
-    """ trainset, testset, num_examples = utils.load_isic_data(args.path_data)
-    trainset, testset, num_examples = utils.load_partition(trainset, testset, num_examples, idx=args.partition, num_partitions=args.num_partitions)
-    imgs = []
-    for row in range(len(trainset.dataset.df)):
-        img_path = trainset.dataset.df.iloc[row]['image_name']
-        image = np.array(Image.open(img_path))
-        imgs.append(image)
-    imgs = np.array(imgs)
-    np.savez_compressed('/workspace/isic_partition0', a=imgs)  """
-
     # trainset, testset, num_examples = utils.load_exp1_partition(trainset, testset, num_examples, idx=args.partition)
     
     if 'whole' in args.tags:
-        trainset, testset, num_examples = utils.load_isic_by_patient_server()
+        train_df, validation_df, num_examples = utils.load_isic_by_patient_server()
     else:
-        trainset, testset, num_examples = utils.load_isic_by_patient(args.partition) 
+        train_df, validation_df, num_examples = utils.load_isic_by_patient(args.partition) 
     
+    trainset = utils.CustomDataset(df = train_df, train = True, transforms = training_transforms) 
+    testset = utils.CustomDataset(df = validation_df, train = True, transforms = testing_transforms ) 
     train_loader = DataLoader(trainset, batch_size=32, num_workers=8, worker_init_fn=utils.seed_worker ,shuffle=True) 
     test_loader = DataLoader(testset, batch_size=16, num_workers=4, worker_init_fn=utils.seed_worker, shuffle = False)   
     print(num_examples)
         
-    utils.train(model, train_loader, test_loader, num_examples, args.partition, args.nowandb,args.log_interval, epochs=args.epochs, es_patience=3)
+    model = utils.train(model, train_loader, test_loader, num_examples, args.partition, args.nowandb,args.log_interval, epochs=args.epochs, es_patience=3)
 
     #Evaluate with global testset
-    testset = utils.load_isic_by_patient_client(-1) 
+    testset = utils.load_isic_by_patient(-1) 
     test_loader = DataLoader(testset, batch_size=16, num_workers=4, worker_init_fn=utils.seed_worker, shuffle = False)   
     val_loss, val_auc_score, val_accuracy, val_f1 = utils.val(model, test_loader)
     print( "Global testset: \n",

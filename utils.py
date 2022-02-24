@@ -203,14 +203,11 @@ def load_isic_by_patient(partition):
     valid_split = pd.concat([df_b_test, df_m_test]) 
     """
     train_df=pd.DataFrame(train_split)
-    validation_df=pd.DataFrame(valid_split) 
-    
-    training_dataset = CustomDataset(df = train_df, train = True, transforms = training_transforms) 
-    testing_dataset = CustomDataset(df = validation_df, train = True, transforms = testing_transforms ) 
+    validation_df=pd.DataFrame(valid_split)   
 
-    num_examples = {"trainset" : len(training_dataset), "testset" : len(testing_dataset)} 
+    num_examples = {"trainset" : len(train_df), "testset" : len(validation_df)} 
     
-    return training_dataset, testing_dataset, num_examples
+    return train_df, validation_df, num_examples
 
 
 def load_isic_by_patient_server():
@@ -253,15 +250,12 @@ def load_isic_by_patient_server():
     train_split = pd.concat([train_split1, train_split2, train_split3])
     valid_split = pd.concat([valid_split1, valid_split2, valid_split3])
 
-    training_df = pd.DataFrame(train_split)
-    validation_df = pd.DataFrame(valid_split) 
+    training_df = pd.DataFrame(train_split) # 25967b 4137m
+    validation_df = pd.DataFrame(valid_split) # 6575b 969m  
 
-    training_dataset =  CustomDataset(df = training_df, train = True, transforms = testing_transforms ) # 25967b 4137m
-    testing_dataset = CustomDataset(df = validation_df, train = True, transforms = testing_transforms ) # 6575b 969m
-
-    num_examples = {"trainset" : len(training_dataset), "testset" : len(testing_dataset)} 
+    num_examples = {"trainset" : len(training_df), "testset" : len(validation_df)} 
     
-    return training_dataset, testing_dataset, num_examples
+    return training_df, validation_df, num_examples
 
 
 
@@ -450,9 +444,9 @@ def train(model, train_loader, validate_loader, num_examples, partition, nowandb
         if val_auc_score > best_val:
             best_val = val_auc_score
             if not nowandb:
-                wandb.run.summary["best_auc_score"] = val_auc_score
-                wandb.run.summary["best_acc_score"] = val_accuracy
+                wandb.run.summary["best_auc_score"] = val_auc_score 
             patience = es_patience  # Resetting patience since we have new best validation accuracy
+            best_model = model.eval() 
             # model_path = os.path.join(f'./melanoma_fl_model_{best_val:.4f}.pth')
             # torch.save(model.state_dict(), model_path)  # Saving current best model
             # print(f'Saving model in {model_path}')
@@ -464,7 +458,7 @@ def train(model, train_loader, validate_loader, num_examples, partition, nowandb
 
     del train_loader, validate_loader, images 
 
-    return model.eval()
+    return best_model
 
 
 def val(model, validate_loader, criterion = nn.BCEWithLogitsLoss()):          
