@@ -18,7 +18,8 @@ Paper: https://arxiv.org/abs/1602.05629
 """
 
 
-from logging import WARNING
+from logging import WARNING, INFO
+import numpy as np
 from typing import Callable, Dict, List, Optional, Tuple
 
 from ...common import (
@@ -171,10 +172,15 @@ class FedAvg(Strategy):
         self, parameters: Parameters
     ) -> Optional[Tuple[float, Dict[str, Scalar]]]:
         """Evaluate model parameters using an evaluation function."""
+        log(INFO, "Evaluate model parameters using eval fcn") 
         if self.eval_fn is None:
             # No evaluation function provided
             return None
         weights = parameters_to_weights(parameters)
+        array_has_nan = sum([np.isnan(w).sum() for w in weights ]) 
+        max_weight = max([np.max(w) for w in weights ])
+        info_nans = f"Number of weights with NaN value: {array_has_nan} "
+        log(INFO, info_nans)
         eval_res = self.eval_fn(weights)
         if eval_res is None:
             return None
@@ -213,15 +219,18 @@ class FedAvg(Strategy):
         """Configure the next round of evaluation."""
         # Do not configure federated evaluation if a centralized evaluation
         # function is provided
-        if self.eval_fn is not None:
-            return []
+        #if self.eval_fn is not None:
+        #    return []
 
         # Parameters and config
         config = {}
         if self.on_evaluate_config_fn is not None:
             # Custom evaluation config function provided
             config = self.on_evaluate_config_fn(rnd)
+        if self.eval_fn is not None and (not "fed_eval" in config or config["fed_eval"]!=1):
+            return []
         evaluate_ins = EvaluateIns(parameters, config)
+
 
         # Sample clients
         if rnd >= 0:

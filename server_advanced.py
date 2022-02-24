@@ -24,8 +24,9 @@ warnings.filterwarnings("ignore")
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 EXCLUDE_LIST = [
-    #"num_batches_tracked",
-    #"running",
+    "num_batches_tracked",
+    "running",
+    #"bn", #FedBN
 ]
 seed = 2022
 utils.seed_everything(seed)
@@ -115,7 +116,7 @@ def get_eval_fn(model):
                     out.append([o,a]) """
         
         if not args.nowandb:
-            wandb.log({'Server/loss': loss, "Server/accuracy": float(accuracy)})
+            wandb.log({'Server/loss': loss, "Server/accuracy": float(accuracy), "Server/auc": float(auc)})
 
         return float(loss), {"accuracy": float(accuracy), "auc": float(auc)}
 
@@ -141,7 +142,7 @@ def evaluate_config(rnd: int):
     evaluation steps.
     """
     val_steps = 5 if rnd < 4 else 10
-    return {"val_steps": val_steps}
+    return {"val_steps": val_steps, "fed_eval": 1}
 
 
 
@@ -149,7 +150,7 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()  
     parser.add_argument("--model", type=str, default='efficientnet-b2')
-    parser.add_argument("--tags", type=str, default='Exp 2. FedAdagrad no BN') 
+    parser.add_argument("--tags", type=str, default='Exp 3. FedAdagrad') 
     parser.add_argument("--nowandb", action="store_true") 
 
     parser.add_argument(
@@ -192,8 +193,8 @@ if __name__ == "__main__":
         min_eval_clients = 2, # not used 
         min_available_clients = ac,
         eval_fn=get_eval_fn(model),
-        #on_fit_config_fn=fit_config,
-        #on_evaluate_config_fn=evaluate_config,
+        on_fit_config_fn=fit_config,
+        on_evaluate_config_fn=evaluate_config,
         initial_parameters= fl.common.weights_to_parameters(get_parameters(model)),  
     )
 
