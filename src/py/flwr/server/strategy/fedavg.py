@@ -171,16 +171,11 @@ class FedAvg(Strategy):
     def evaluate(
         self, parameters: Parameters
     ) -> Optional[Tuple[float, Dict[str, Scalar]]]:
-        """Evaluate model parameters using an evaluation function."""
-        log(INFO, "Evaluate model parameters using eval fcn") 
+        """Evaluate model parameters using an evaluation function.""" 
         if self.eval_fn is None:
             # No evaluation function provided
             return None
-        weights = parameters_to_weights(parameters)
-        array_has_nan = sum([np.isnan(w).sum() for w in weights ]) 
-        max_weight = max([np.max(w) for w in weights ])
-        info_nans = f"Number of weights with NaN value: {array_has_nan} "
-        log(INFO, info_nans)
+        weights = parameters_to_weights(parameters) 
         eval_res = self.eval_fn(weights)
         if eval_res is None:
             return None

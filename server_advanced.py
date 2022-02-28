@@ -24,8 +24,8 @@ warnings.filterwarnings("ignore")
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 EXCLUDE_LIST = [
-    "num_batches_tracked",
-    "running",
+    #"num_batches_tracked",
+    #"running",
     #"bn", #FedBN
 ]
 seed = 2022
@@ -99,7 +99,7 @@ def get_eval_fn(model):
     ) -> Optional[Tuple[float, Dict[str, fl.common.Scalar]]]:
         # Update model with the latest parameters 
         set_parameters(model, weights) 
-        loss, auc, accuracy, f1 = utils.val(model, testloader, criterion = nn.BCEWithLogitsLoss()) 
+        loss, auc, accuracy, f1 = utils.val(model, testloader, nn.BCEWithLogitsLoss(), -1, True) 
         """ 
         index_pos_list = [ i for i in range(len(keys)) if 'num_batches' in keys[i]]
         for i in index_pos_list:
@@ -142,7 +142,8 @@ def evaluate_config(rnd: int):
     evaluation steps.
     """
     val_steps = 5 if rnd < 4 else 10
-    return {"val_steps": val_steps, "fed_eval": 1}
+    fed_eval = 1 
+    return {"val_steps": val_steps, "fed_eval": fed_eval}
 
 
 
@@ -159,13 +160,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "-fc",
         type=int,
-        default=2,
+        default=3,
         help="Min fit clients, min number of clients to be sampled next round",
     )
     parser.add_argument(
         "-ac",
         type=int,
-        default=2,
+        default=3,
         help="Min available clients, min number of clients that need to connect to the server before training round can start",
     )
     

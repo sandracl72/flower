@@ -158,6 +158,7 @@ def load_isic_by_patient(partition):
     np.random.shuffle(melanoma_groups_list)
     np.random.shuffle(benign_groups_list)
 
+    # EXP 3
     if partition == 2:
         df_b = pd.concat(benign_groups_list[:90])  # 1348 
         df_m = pd.concat(melanoma_groups_list[:60])  # 235 (15% melanomas)  T=1583
@@ -183,6 +184,7 @@ def load_isic_by_patient(partition):
         return testing_dataset
 
     """ 
+    #EXP 2
     if partition == 2:
         df_b_test = pd.concat(benign_groups_list[1800:]) # 4462 
         df_b_train = pd.concat(benign_groups_list[800:1800])  # 16033 - TOTAL 20495 samples 
@@ -425,7 +427,7 @@ def train(model, train_loader, validate_loader, num_examples, partition, nowandb
                             
         train_acc = correct / num_examples["trainset"]
 
-        val_loss, val_auc_score, val_accuracy, val_f1 = val(model, validate_loader, criterion)
+        val_loss, val_auc_score, val_accuracy, val_f1 = val(model, validate_loader, criterion, partition, nowandb)
             
         print("Epoch: {}/{}.. ".format(e+1, epochs),
             "Training Loss: {:.3f}.. ".format(running_loss/len(train_loader)),
@@ -436,8 +438,7 @@ def train(model, train_loader, validate_loader, num_examples, partition, nowandb
             "Validation F1 Score: {:.3f}".format(val_f1))
             
         if not nowandb:
-            wandb.log({f'Client{partition}/Training acc': train_acc, f'Client{partition}/training_loss': running_loss/len(train_loader), 'epoch':e,
-                    f'Client{partition}/Validation AUC Score': val_auc_score, f'Client{partition}/Validation Acc': val_accuracy,f'Client{partition}/Validation Loss': val_loss})
+            wandb.log({f'Client{partition}/Training acc': train_acc, f'Client{partition}/training_loss': running_loss/len(train_loader), 'epoch':e})
 
         scheduler.step(val_auc_score)
                 
@@ -461,7 +462,7 @@ def train(model, train_loader, validate_loader, num_examples, partition, nowandb
     return best_model
 
 
-def val(model, validate_loader, criterion = nn.BCEWithLogitsLoss()):          
+def val(model, validate_loader, criterion, partition, nowandb):          
     model.eval()
     preds=[]            
     all_labels=[] 
@@ -493,6 +494,11 @@ def val(model, validate_loader, criterion = nn.BCEWithLogitsLoss()):
         val_accuracy = accuracy_score(val_gt2, torch.round(pred2))
         val_auc_score = roc_auc_score(val_gt, pred)
         val_f1_score = f1_score(val_gt, np.round(pred))
+
+        if not nowandb:
+            wandb.log({f'Client{partition}/Validation AUC Score': val_auc_score, f'Client{partition}/Validation Acc': val_accuracy,
+                             f'Client{partition}/Validation Loss': val_loss/len(validate_loader)})
+
 
         return val_loss/len(validate_loader), val_auc_score, val_accuracy, val_f1_score
 
