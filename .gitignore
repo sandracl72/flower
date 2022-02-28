@@ -5,6 +5,7 @@ doc/source/api_documentation
 doc/source/_build
 flwr_logs
 .cache
+examples/
 
 # Datasets
 cifar-10-python.tar.gz
