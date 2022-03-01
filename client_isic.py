@@ -3,7 +3,7 @@
 # File       : train_local.py
 # Modified   : 17.02.2022
 # By         : Sandra Carrasco <sandra.carrasco@ai.se>
-
+import os
 from collections import OrderedDict
 import numpy as np  
 from typing import List, Tuple, Dict
@@ -21,15 +21,12 @@ import wandb
 import warnings
 
 warnings.filterwarnings("ignore")
-seed = 1234
+seed = 2022
 seed_everything(seed)
 
-# Setting up GPU for processing or CPU if GPU isn't available
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 EXCLUDE_LIST = [
-#    "running",
-#    "num_batches_tracked",
+    #"running",
+    #"num_batches_tracked",
 #"bn",
 ]
 
@@ -42,7 +39,7 @@ class Client(fl.client.NumPyClient):
         trainloader: torch.utils.data.DataLoader,
         valloader: torch.utils.data.DataLoader,
         testloader: torch.utils.data.DataLoader,
-        num_examples: Dict,
+        num_examples: Dict, 
     ) -> None:
         self.model = model
         self.trainloader = trainloader
@@ -51,21 +48,8 @@ class Client(fl.client.NumPyClient):
         self.num_examples = num_examples
 
     def get_properties(self, config):
-        return {}
+        return {} 
     
-    """
-    def get_parameters(self) -> List[np.ndarray]:
-        # Return model parameters as a list of NumPy ndarrays
-        return [val.cpu().numpy() for name, val in self.model.state_dict().items() ] # if 'bn' not in name]
-
-    def set_parameters(self, parameters: List[np.ndarray]) -> None:
-        # Set model parameters from a list of NumPy ndarrays
-        keys = [k for k in self.model.state_dict().keys() ] #if 'bn' not in k]
-        params_dict = zip(keys, parameters)
-        state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-        self.model.load_state_dict(state_dict, strict=False)
-    
-    """
     def get_parameters(self) -> List[np.ndarray]:
         parameters = []
         for i, (name, tensor) in enumerate(self.model.state_dict().items()):
@@ -110,7 +94,7 @@ class Client(fl.client.NumPyClient):
         # Set model parameters, train model, return updated model parameters
         self.set_parameters(parameters)
         self.model = utils.train(self.model, self.trainloader, self.valloader, self.num_examples, args.partition, 
-                                args.nowandb, args.log_interval, epochs=args.epochs, es_patience=3)
+                                args.nowandb, device, args.log_interval, epochs=args.epochs, es_patience=3)
         return self.get_parameters(), self.num_examples["trainset"], {}
 
     def evaluate(
@@ -119,7 +103,7 @@ class Client(fl.client.NumPyClient):
         # WE DON'T EVALUATE OUR CLIENTS DECENTRALIZED
         # Set model parameters, evaluate model on local test dataset, return result
         self.set_parameters(parameters)
-        loss, auc, accuracy, f1 = utils.val(self.model, self.testloader, nn.BCEWithLogitsLoss(), f"{args.partition}_test",args.nowandb)
+        loss, auc, accuracy, f1 = utils.val(self.model, self.testloader, nn.BCEWithLogitsLoss(), f"{args.partition}_test",args.nowandb, device)
 
         return float(loss), self.num_examples["testset"], {"accuracy": float(accuracy), "auc": float(auc), "f1": float(f1)}
                 
@@ -133,12 +117,19 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default='2')  
     parser.add_argument("--num_partitions", type=int, default='20') 
     parser.add_argument("--partition", type=int, default='0')   
-    parser.add_argument("--tags", type=str, default='Exp 3. FedAvg') 
+    parser.add_argument("--gpu", type=int, default='0')   
+    parser.add_argument("--tags", type=str, default='Exp 5. FedAvg') 
     parser.add_argument("--nowandb", action="store_true") 
     args = parser.parse_args()
 
+    
+    # Setting up GPU for processing or CPU if GPU isn't available
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
+    device = torch.device( "cuda" if torch.cuda.is_available() else "cpu")
+    print(device)
+
     # Load model
-    model = utils.load_model(args.model)
+    model = utils.load_model(args.model, device)
 
     if not args.nowandb:
         wandb.init(project="dai-healthcare" , entity='eyeforai', group='FL', tags=[args.tags], config={"model": args.model})
@@ -156,6 +147,9 @@ if __name__ == "__main__":
     trainset = utils.CustomDataset(df = train_df, train = True, transforms = training_transforms) 
     valset = utils.CustomDataset(df = validation_df, train = True, transforms = testing_transforms ) 
     testset =  utils.load_isic_by_patient(-1)
+    
+    print(f"Train dataset: {len(trainset)}, Val dataset: {len(valset)}, Test dataset: {len(testset)}")
+
     train_loader = DataLoader(trainset, batch_size=32, num_workers=4, worker_init_fn=utils.seed_worker, shuffle=True) 
     val_loader = DataLoader(valset, batch_size=16, num_workers=4, worker_init_fn=utils.seed_worker, shuffle = False)   
     test_loader = DataLoader(testset, batch_size=16, num_workers=4, worker_init_fn=utils.seed_worker, shuffle = False)   

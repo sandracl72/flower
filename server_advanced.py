@@ -4,8 +4,7 @@
 # Modified   : 17.02.2022
 # By         : Sandra Carrasco <sandra.carrasco@ai.se>
 
-import sys
-sys.path.append('/workspace/flower')  
+import sys 
 
 import src.py.flwr as fl 
 from typing import List, Tuple, Dict, Optional 
@@ -22,7 +21,6 @@ from argparse import ArgumentParser
 
 warnings.filterwarnings("ignore")
 
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 EXCLUDE_LIST = [
     #"num_batches_tracked",
     #"running",
@@ -30,52 +28,6 @@ EXCLUDE_LIST = [
 ]
 seed = 2022
 utils.seed_everything(seed)
-
-""" 
-def set_parameters(model, parameters: List[np.ndarray]) -> None:
-        # Set model parameters from a list of NumPy ndarrays
-        keys = [k for k in model.state_dict().keys()] #  if 'bn' not in name]
-        params_dict = zip(keys, parameters)
-        state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-        model.load_state_dict(state_dict, strict=False)
-"""
-
-def get_parameters(net) -> List[np.ndarray]:
-        parameters = []
-        for i, (name, tensor) in enumerate(net.state_dict().items()):
-            # print(f"  [layer {i}] {name}, {type(tensor)}, {tensor.shape}, {tensor.dtype}")
-
-            # Check if this tensor should be included or not
-            exclude = False
-            for forbidden_ending in EXCLUDE_LIST:
-                if forbidden_ending in name:
-                    exclude = True
-            if exclude:
-                continue
-
-            # Convert torch.Tensor to NumPy.ndarray
-            parameters.append(tensor.cpu().numpy())
-
-        return parameters
-
-
-def set_parameters(net, parameters):
-        keys = []
-        for name in net.state_dict().keys():
-            # Check if this tensor should be included or not
-            exclude = False
-            for forbidden_ending in EXCLUDE_LIST:
-                if forbidden_ending in name:
-                    exclude = True
-            if exclude:
-                continue
-
-            # Add to list of included keys
-            keys.append(name)
-
-        params_dict = zip(keys, parameters)
-        state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-        net.load_state_dict(state_dict, strict=False)
 
         
 def get_eval_fn(model):
@@ -98,8 +50,8 @@ def get_eval_fn(model):
         weights: fl.common.Weights,
     ) -> Optional[Tuple[float, Dict[str, fl.common.Scalar]]]:
         # Update model with the latest parameters 
-        set_parameters(model, weights) 
-        loss, auc, accuracy, f1 = utils.val(model, testloader, nn.BCEWithLogitsLoss(), -1, True) 
+        utils.set_parameters(model, weights, EXCLUDE_LIST) 
+        loss, auc, accuracy, f1 = utils.val(model, testloader, nn.BCEWithLogitsLoss(), -1, True, device) 
         """ 
         index_pos_list = [ i for i in range(len(keys)) if 'num_batches' in keys[i]]
         for i in index_pos_list:
@@ -151,26 +103,32 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()  
     parser.add_argument("--model", type=str, default='efficientnet-b2')
-    parser.add_argument("--tags", type=str, default='Exp 3. FedAdagrad') 
-    parser.add_argument("--nowandb", action="store_true") 
+    parser.add_argument("--tags", type=str, default='Exp 5. FedAvg') 
+    parser.add_argument("--nowandb", action="store_true")  
 
     parser.add_argument(
-        "-r", type=int, default=10, help="Number of rounds for the federated training"
+        "--r", type=int, default=10, help="Number of rounds for the federated training"
     )
     parser.add_argument(
-        "-fc",
+        "--fc",
         type=int,
         default=3,
         help="Min fit clients, min number of clients to be sampled next round",
     )
     parser.add_argument(
-        "-ac",
+        "--ac",
         type=int,
         default=3,
         help="Min available clients, min number of clients that need to connect to the server before training round can start",
     )
     
+
     args = parser.parse_args()
+
+    # Setting up GPU for processing or CPU if GPU isn't available
+    device = torch.device( f"cuda" if torch.cuda.is_available() else "cpu")
+    print(device)
+
     rounds = int(args.r)
     fc = int(args.fc)
     ac = int(args.ac)
@@ -178,7 +136,7 @@ if __name__ == "__main__":
     # Load model for
         # 1. server-side parameter initialization
         # 2. server-side parameter evaluation
-    model = utils.load_model(args.model).eval()
+    model = utils.load_model(args.model, device).eval()
     #model_weights = [val.cpu().numpy() for name, val in model.state_dict().items()] #  if 'bn' not in name] 
 
     if not args.nowandb:
@@ -189,14 +147,14 @@ if __name__ == "__main__":
     # Create strategy
     strategy = fl.server.strategy.FedAvg(
         fraction_fit = fc/ac,
-        fraction_eval = 0.2, # not used - no federated evaluation
+        fraction_eval = 1,  
         min_fit_clients = fc,
-        min_eval_clients = 2, # not used 
+        min_eval_clients = 2,  
         min_available_clients = ac,
         eval_fn=get_eval_fn(model),
         on_fit_config_fn=fit_config,
         on_evaluate_config_fn=evaluate_config,
-        initial_parameters= fl.common.weights_to_parameters(get_parameters(model)),  
+        initial_parameters= fl.common.weights_to_parameters(utils.get_parameters(model, EXCLUDE_LIST)),  
     )
 
     fl.server.start_server("0.0.0.0:8080", config={"num_rounds": rounds}, strategy=strategy) 

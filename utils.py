@@ -28,7 +28,6 @@ from sklearn.metrics import accuracy_score, roc_auc_score, f1_score
 
 import wandb
 
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 training_transforms = transforms.Compose([#Microscope(),
                                         #AdvancedHairAugmentation(),
@@ -69,15 +68,43 @@ seed = 2022
 seed_everything(seed)
 
 
-def get_weights(model):
-    return [val.cpu().numpy() for _, val in model.state_dict().items()]
-    
-def set_weights(model, weights: List[np.ndarray]) -> None:
-    # Set model parameters from a list of NumPy ndarrays
-    keys = [k for k in model.state_dict().keys()] # if 'bn' not in k]
-    params_dict = zip(keys, weights)
-    state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-    model.load_state_dict(state_dict, strict=True)
+def get_parameters(net, EXCLUDE_LIST) -> List[np.ndarray]:
+        parameters = []
+        for i, (name, tensor) in enumerate(net.state_dict().items()):
+            # print(f"  [layer {i}] {name}, {type(tensor)}, {tensor.shape}, {tensor.dtype}")
+
+            # Check if this tensor should be included or not
+            exclude = False
+            for forbidden_ending in EXCLUDE_LIST:
+                if forbidden_ending in name:
+                    exclude = True
+            if exclude:
+                continue
+
+            # Convert torch.Tensor to NumPy.ndarray
+            parameters.append(tensor.cpu().numpy())
+
+        return parameters
+
+
+def set_parameters(net, parameters, EXCLUDE_LIST):
+        keys = []
+        for name in net.state_dict().keys():
+            # Check if this tensor should be included or not
+            exclude = False
+            for forbidden_ending in EXCLUDE_LIST:
+                if forbidden_ending in name:
+                    exclude = True
+            if exclude:
+                continue
+
+            # Add to list of included keys
+            keys.append(name)
+
+        params_dict = zip(keys, parameters)
+        state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+        net.load_state_dict(state_dict, strict=False)
+
 
 
 class Net(nn.Module):
@@ -108,7 +135,7 @@ class Net(nn.Module):
         return output
 
 
-def load_model(model = 'efficientnet-b2'):
+def load_model(model = 'efficientnet-b2', device="cuda"):
     if "efficientnet" in model:
         arch = EfficientNet.from_pretrained(model)
     elif model == "googlenet":
@@ -116,7 +143,7 @@ def load_model(model = 'efficientnet-b2'):
     else:
         arch = torchvision.models.resnet50(pretrained=True)
         
-    model = Net(arch=arch).to(DEVICE)
+    model = Net(arch=arch).to(device)
 
     return model
 
@@ -158,10 +185,70 @@ def load_isic_by_patient(partition):
     np.random.shuffle(melanoma_groups_list)
     np.random.shuffle(benign_groups_list)
 
+    # EXP 5: same bias/ratio different size - simulate regions
+    if partition == 0:
+        df_b = pd.concat(benign_groups_list[:270])  # 4253 
+        df_m = pd.concat(melanoma_groups_list[:350])  # 1029 (19.5% melanomas)  T=5282
+        df = pd.concat([df_b, df_m])
+        train_split, valid_split = train_test_split(df, stratify=df.target, test_size = 0.20, random_state=42)
+    elif partition == 1:
+        df_b = pd.concat(benign_groups_list[270:440])  # 2881 
+        df_m = pd.concat(melanoma_groups_list[350:539])  # 845 (22.6% melanomas)  T=3726
+        df = pd.concat([df_b, df_m])
+        train_split, valid_split = train_test_split(df, stratify=df.target, test_size = 0.20, random_state=42)
+    elif partition == 2:
+        df_b = pd.concat(benign_groups_list[440:490])  # 805 
+        df_m = pd.concat(melanoma_groups_list[539:615])  # 194 (19.4% melanomas)  T=999
+        df = pd.concat([df_b, df_m])
+        train_split, valid_split = train_test_split(df, stratify=df.target, test_size = 0.20, random_state=42)
+    elif partition == 3:
+        df_b = pd.concat(benign_groups_list[490:511])  # 341 
+        df_m = pd.concat(melanoma_groups_list[615:640])  # 87 (20% melanomas)  T=428
+        df = pd.concat([df_b, df_m])
+        train_split, valid_split = train_test_split(df, stratify=df.target, test_size = 0.20, random_state=42)
+    elif partition == 4:
+        df_b = pd.concat(benign_groups_list[515:520])  # 171 
+        df_m = pd.concat(melanoma_groups_list[640:656])  # 47 (21.5% melanomas)  T=218
+        df = pd.concat([df_b, df_m])
+        train_split, valid_split = train_test_split(df, stratify=df.target, test_size = 0.20, random_state=42)
+    else:
+        #server
+        df_b = pd.concat(benign_groups_list[520:720])  # 3531 
+        df_m = pd.concat(melanoma_groups_list[700:1100])  # 1456 (29% M) T=4987
+        valid_split = pd.concat([df_b, df_m])
+        validation_df=pd.DataFrame(valid_split) 
+        testing_dataset = CustomDataset(df = validation_df, train = True, transforms = testing_transforms ) 
+        return testing_dataset
+    """
+    # EXP 4: same size (1.5k) different ratio b/m
+    if partition == 1:
+        df_b = pd.concat(benign_groups_list[:75])  # 1118 
+        df_m = pd.concat(melanoma_groups_list[:90])  # 499 (30.8% melanomas)  T=1617
+        df = pd.concat([df_b, df_m])
+        train_split, valid_split = train_test_split(df, stratify=df.target, test_size = 0.20, random_state=42)
+    elif partition == 2:
+        df_b = pd.concat(benign_groups_list[75:185])  # 1600 
+        df_m = pd.concat(melanoma_groups_list[90:95])  # 17 (1% melanomas)  T=1617
+        df = pd.concat([df_b, df_m])
+        train_split, valid_split = train_test_split(df, stratify=df.target, test_size = 0.20, random_state=42)
+    elif partition == 0:
+        df_b = pd.concat(benign_groups_list[185:191])  # 160 
+        df_m = pd.concat(melanoma_groups_list[150:550])  # 1454 (90% melanomas)  T=1614
+        df = pd.concat([df_b, df_m])
+        train_split, valid_split = train_test_split(df, stratify=df.target, test_size = 0.20, random_state=42)
+    else:
+        #server
+        df_b = pd.concat(benign_groups_list[500:700])  # 3630 
+        df_m = pd.concat(melanoma_groups_list[600:1100])  # 1779 (33% M) T=5409
+        valid_split = pd.concat([df_b, df_m])
+        validation_df=pd.DataFrame(valid_split) 
+        testing_dataset = CustomDataset(df = validation_df, train = True, transforms = testing_transforms ) 
+        return testing_dataset
+    
     # EXP 3
     if partition == 2:
         df_b = pd.concat(benign_groups_list[:90])  # 1348 
-        df_m = pd.concat(melanoma_groups_list[:60])  # 235 (15% melanomas)  T=1583
+        df_m = pd.concat(melanoma_groups_list[:60])  # 172 (11.3% melanomas)  T=1520
         df = pd.concat([df_b, df_m])
         train_split, valid_split = train_test_split(df, stratify=df.target, test_size = 0.20, random_state=42)
     elif partition == 1:
@@ -183,7 +270,7 @@ def load_isic_by_patient(partition):
         testing_dataset = CustomDataset(df = validation_df, train = True, transforms = testing_transforms ) 
         return testing_dataset
 
-    """ 
+    
     #EXP 2
     if partition == 2:
         df_b_test = pd.concat(benign_groups_list[1800:]) # 4462 
@@ -382,7 +469,7 @@ class CustomDataset(Dataset):
 
 
 
-def train(model, train_loader, validate_loader, num_examples, partition, nowandb, log_interval = 100, epochs = 10, es_patience = 3):
+def train(model, train_loader, validate_loader, num_examples,partition, nowandb, device="cuda",  log_interval = 100, epochs = 10, es_patience = 3):
     # Training model
     print('Starts training...')
 
@@ -402,7 +489,7 @@ def train(model, train_loader, validate_loader, num_examples, partition, nowandb
         
         for i, (images, labels) in enumerate(train_loader):
 
-            images, labels = images.to(DEVICE), labels.to(DEVICE)
+            images, labels = images.to(device), labels.to(device)
             # image_array = torchvision.utils.make_grid(images)
             # images_wndb = wandb.Image(image_array)
             # wandb.log({"training_batch": images_wndb})
@@ -454,7 +541,7 @@ def train(model, train_loader, validate_loader, num_examples, partition, nowandb
         else:
             patience -= 1
             if patience == 0:
-                print('Early stopping. Best Val f1: {:.3f}'.format(best_val))
+                print('Early stopping. Best Val AUC: {:.3f}'.format(best_val))
                 break
 
     del train_loader, validate_loader, images 
@@ -462,7 +549,7 @@ def train(model, train_loader, validate_loader, num_examples, partition, nowandb
     return best_model
 
 
-def val(model, validate_loader, criterion, partition, nowandb):          
+def val(model, validate_loader, criterion, partition, nowandb, device="cuda"):          
     model.eval()
     preds=[]            
     all_labels=[] 
@@ -473,7 +560,7 @@ def val(model, validate_loader, criterion, partition, nowandb):
     
         for val_images, val_labels in validate_loader:
         
-            val_images, val_labels = val_images.to(DEVICE), val_labels.to(DEVICE)
+            val_images, val_labels = val_images.to(device), val_labels.to(device)
             # image_array = torchvision.utils.make_grid(val_images)
             # images_wndb = wandb.Image(image_array)
             # wandb.log({"val_batch": images_wndb})
@@ -504,17 +591,16 @@ def val(model, validate_loader, criterion, partition, nowandb):
 
 
 
-def val_mp_server(arch, parameters, return_dict):          
+def val_mp_server(arch, parameters, device, EXCLUDE_LIST, return_dict):          
     # Create model
     model = load_model(arch)
-    model.to(DEVICE)
+    model.to(device)
     # Set model parameters, train model, return updated model parameters 
     if parameters is not None:
-        set_weights(model, parameters)
+        set_parameters(model, parameters, EXCLUDE_LIST)
     # Load data
-    _, testset, _ = load_isic_data()
-    # trainset, testset, num_examples = load_partition(trainset, testset, num_examples, idx=partition, num_partitions=num_partitions)
-    test_loader = DataLoader(testset, batch_size=16, shuffle = False)      
+    testset = load_isic_by_patient(partition=-1)
+    test_loader = DataLoader(testset, batch_size=32, num_workers=4, worker_init_fn=seed_worker, shuffle = False)   
     preds=[]            
     all_labels=[]
     criterion = nn.BCEWithLogitsLoss()
@@ -525,7 +611,7 @@ def val_mp_server(arch, parameters, return_dict):
     
         for val_images, val_labels in test_loader:
         
-            val_images, val_labels = val_images.to(DEVICE), val_labels.to(DEVICE)
+            val_images, val_labels = val_images.to(device), val_labels.to(device)
         
             val_output = model(val_images)
             val_loss += (criterion(val_output, val_labels.view(-1,1))).item() 
@@ -539,7 +625,7 @@ def val_mp_server(arch, parameters, return_dict):
         val_gt2 = torch.tensor(val_gt)
             
         val_accuracy = accuracy_score(val_gt2, torch.round(pred2))
-        val_auc_score = roc_auc_score(val_gt, pred) 
+        val_auc_score = roc_auc_score(val_gt, pred)  
 
         return_dict['loss'] = val_loss/len(test_loader)
         return_dict['auc_score'] = val_auc_score
