@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# File       : train_local.py
+# Modified   : 17.02.2022
+# By         : Sandra Carrasco <sandra.carrasco@ai.se>
+
 from collections import OrderedDict
 import numpy as np 
 import os
@@ -5,7 +11,7 @@ from typing import List, Tuple, Dict
 
 import torch 
 import torch.nn as nn 
-from torch import optim 
+from torch import device, optim 
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader 
 from argparse import ArgumentParser 
@@ -15,18 +21,20 @@ import utils
 from utils import seed_everything  
 
 import multiprocessing as mp
-
+from utils import Net, seed_everything  , training_transforms, testing_transforms
 import wandb 
 
 import warnings
 
 warnings.filterwarnings("ignore")
-seed = 1234
+seed = 2022
 seed_everything(seed)
 
-# Setting up GPU for processing or CPU if GPU isn't available
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+EXCLUDE_LIST = [
+    #"running",
+    #"num_batches_tracked",
+#"bn",
+]
 
 class Client(fl.client.NumPyClient):
     """Flower client implementing melanoma classification using PyTorch."""
@@ -81,27 +89,48 @@ class Client(fl.client.NumPyClient):
     def evaluate(
         self, parameters: List[np.ndarray], config: Dict[str, str]
     ) -> Tuple[float, int, Dict]:
-        # WE DON'T EVALUATE OUR CLIENTS DECENTRALIZED
-        # Set model parameters, evaluate model on local test dataset, return result
-        self.set_parameters(parameters)
-        loss, auc, accuracy, f1 = utils.val(self.model, self.testloader)
-        return float(loss), self.num_examples["testset"], {"accuracy": float(accuracy), "auc": float(auc)}
+        # Prepare multiprocess
+        manager = mp.Manager()
+        # We receive the results through a shared dictionary
+        return_dict = manager.dict()
+        # Create the process
+        p = mp.Process(target=utils.val_mp_server, args=(args.model, parameters, device, EXCLUDE_LIST, return_dict))
+        # Start the process
+        p.start()
+        # Wait for it to end
+        p.join()
+        # Close it
+        try:
+            p.close()
+        except ValueError as e:
+            print(f"Coudln't close the evaluating process: {e}")
+        # Get the return values
+        loss = return_dict["loss"]
+        accuracy = return_dict["accuracy"]
+        auc = return_dict["auc_score"]
+        num_examples = return_dict["num_examples"]
+        # Del everything related to multiprocessing
+        del (manager, return_dict, p)
+        if not args.nowandb:
+            wandb.log({f'Client{args.partition}/loss': loss, f'Client{args.partition}/accuracy': float(accuracy), f'Client{args.partition}/auc': float(auc)})
+        return float(loss), num_examples["testset"], {"accuracy": float(accuracy), "auc": float(auc)}
 
 
 
 def train(arch, parameters, return_dict, partition, num_partitions = 5, log_interval = 100, epochs = 10, es_patience = 3):
     # Create model
-    model = utils.load_model(arch)
-    model.to(DEVICE)
+    model = utils.load_model(arch, device)
+    model.to(device)
     # Set model parameters, train model, return updated model parameters 
     if parameters is not None:
-        utils.set_weights(model, parameters)
+        utils.set_parameters(model, parameters, EXCLUDE_LIST)
     # Load data
-    trainset, testset, num_examples = utils.load_isic_data()
-    # trainset, testset, num_examples = utils.load_partition(trainset, testset, num_examples, idx=partition, num_partitions=num_partitions)
-    trainset, testset, num_examples = utils.load_experiment_partition(trainset, testset, num_examples, idx=partition)
-    train_loader = DataLoader(trainset, batch_size=32, num_workers=4, shuffle=True) 
-    test_loader = DataLoader(testset, batch_size=16, shuffle = False)      
+    train_df, validation_df, num_examples = utils.load_isic_by_patient(args.partition)
+    trainset = utils.CustomDataset(df = train_df, train = True, transforms = training_transforms) 
+    valset = utils.CustomDataset(df = validation_df, train = True, transforms = testing_transforms )  
+    train_loader = DataLoader(trainset, batch_size=32, num_workers=4, worker_init_fn=utils.seed_worker, shuffle=True) 
+    val_loader = DataLoader(valset, batch_size=16, num_workers=4, worker_init_fn=utils.seed_worker, shuffle = False)     
+
     # Training model
     print('Starts training...')
 
@@ -121,7 +150,7 @@ def train(arch, parameters, return_dict, partition, num_partitions = 5, log_inte
         
         for i, (images, labels) in enumerate(train_loader):
 
-            images, labels = images.to(DEVICE), labels.to(DEVICE)
+            images, labels = images.to(device), labels.to(device)
                 
             optimizer.zero_grad()
             
@@ -153,8 +182,8 @@ def train(arch, parameters, return_dict, partition, num_partitions = 5, log_inte
             "Validation AUC Score: {:.3f}".format(val_auc_score),
             "Validation F1 Score: {:.3f}".format(val_f1))
             
-        #wandb.log({'Client/Training acc': train_acc, 'Client/training_loss': running_loss/len(train_loader),
-        #            'Client/Validation AUC Score': val_auc_score, 'Client/Validation Acc': val_accuracy, 'Client/Validation Loss': val_loss})
+        wandb.log({f'Client{partition}/Training acc': train_acc, f'Client{partition}/training_loss': running_loss/len(train_loader),
+                    f'Client{partition}/Validation AUC Score': val_auc_score, f'Client{partition}/Validation Acc': val_accuracy, f'Client{partition}/Validation Loss': val_loss})
 
         scheduler.step(val_auc_score)
                 
@@ -171,7 +200,7 @@ def train(arch, parameters, return_dict, partition, num_partitions = 5, log_inte
                 break
 
     # Prepare return values
-    return_dict["parameters"] = utils.get_weights(model)
+    return_dict["parameters"] = utils.get_parameters(model, EXCLUDE_LIST)
     return_dict["data_size"] = num_examples["trainset"] 
     return_dict["train_loss"] = running_loss/len(train_loader)
     return_dict["train_acc"] = train_acc
@@ -186,26 +215,24 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default='2')  
     parser.add_argument("--log_interval", type=int, default='100')  
     parser.add_argument("--num_partitions", type=int, default='10') 
-    parser.add_argument("--partition", type=int, default='0')  
+    parser.add_argument("--partition", type=int, default='0')    
+    parser.add_argument("--gpu", type=int, default='0')   
+    parser.add_argument("--tags", type=str, default='Exp 5. FedAvg') 
+    parser.add_argument("--nowandb", action="store_true") 
     args = parser.parse_args()
 
-    wandb.init(project="dai-healthcare" , entity='eyeforai', group='FL_mp', tags=['FL mp'], config={"model": args.model})
-    wandb.config.update(args)
+    # Setting up GPU for processing or CPU if GPU isn't available
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
+    device = torch.device( "cuda" if torch.cuda.is_available() else "cpu")
+    print(device)
+
+    if not args.nowandb:
+        wandb.init(project="dai-healthcare" , entity='eyeforai', group='mp', tags=[args.tags], config={"model": args.model})
+        wandb.config.update(args)
 
     # Set the start method for multiprocessing in case Python version is under 3.8.1
     mp.set_start_method("spawn", force=True)
 
-    """ 
-    # Load model
-    model = utils.load_model(args.model)
-
-    # Load data
-    trainset, testset, num_examples = utils.load_isic_data()
-    trainset, testset, num_examples = utils.load_partition(trainset, testset, num_examples, idx=args.partition, num_partitions=args.num_partitions)
-    train_loader = DataLoader(trainset, batch_size=32, num_workers=4, shuffle=True) 
-    test_loader = DataLoader(testset, batch_size=16, shuffle = False)   
-    """
-    
     # Start client 
     fl.client.start_numpy_client("0.0.0.0:8080", Client())
 

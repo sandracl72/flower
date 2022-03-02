@@ -51,7 +51,7 @@ def get_eval_fn(model):
     ) -> Optional[Tuple[float, Dict[str, fl.common.Scalar]]]:
         # Update model with the latest parameters 
         utils.set_parameters(model, weights, EXCLUDE_LIST) 
-        loss, auc, accuracy, f1 = utils.val(model, testloader, nn.BCEWithLogitsLoss(), -1, True, device) 
+        loss, auc, accuracy, f1 = utils.val(model, testloader, nn.BCEWithLogitsLoss(), -1, args.nowandb, device) 
         """ 
         index_pos_list = [ i for i in range(len(keys)) if 'num_batches' in keys[i]]
         for i in index_pos_list:
@@ -67,8 +67,6 @@ def get_eval_fn(model):
                 if equal[i]==False:
                     out.append([o,a]) """
         
-        if not args.nowandb:
-            wandb.log({'Server/loss': loss, "Server/accuracy": float(accuracy), "Server/auc": float(auc)})
 
         return float(loss), {"accuracy": float(accuracy), "auc": float(auc)}
 
@@ -93,9 +91,8 @@ def evaluate_config(rnd: int):
     batches) during rounds one to three, then increase to ten local
     evaluation steps.
     """
-    val_steps = 5 if rnd < 4 else 10
-    fed_eval = 1 
-    return {"val_steps": val_steps, "fed_eval": fed_eval}
+    val_steps = 5 if rnd < 4 else 10 
+    return {"val_steps": val_steps}
 
 
 

@@ -4,8 +4,7 @@
 # Modified   : 17.02.2022
 # By         : Sandra Carrasco <sandra.carrasco@ai.se>
 
-import sys
-sys.path.append('/workspace/flower')
+import sys 
 import src.py.flwr as fl 
 from typing import List, Tuple, Dict, Optional
 import sys, os
@@ -23,8 +22,13 @@ import multiprocessing as mp
 
 warnings.filterwarnings("ignore")
 
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+EXCLUDE_LIST = [
+    #"num_batches_tracked",
+    #"running",
+    #"bn", #FedBN
+]
 seed = 2022
 utils.seed_everything(seed)
 
@@ -41,7 +45,7 @@ def get_eval_fn():
         # We receive the results through a shared dictionary
         return_dict = manager.dict()
         # Create the process
-        p = mp.Process(target=utils.val_mp_server, args=(args.model, weights, return_dict))
+        p = mp.Process(target=utils.val_mp_server, args=(args.model, weights, device, EXCLUDE_LIST, return_dict))
         # Start the process
         p.start()
         # Wait for it to end
@@ -84,7 +88,8 @@ def evaluate_config(rnd: int):
     evaluation steps.
     """
     val_steps = 5 if rnd < 4 else 10
-    return {"val_steps": val_steps}
+    fed_eval = 1 
+    return {"val_steps": val_steps, "fed_eval": fed_eval}
 
 
 
@@ -92,17 +97,18 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()  
     parser.add_argument("--model", type=str, default='efficientnet-b2')
+    parser.add_argument("--tags", type=str, default='Exp 5. FedAvg') 
     parser.add_argument(
-        "-r", type=int, default=7, help="Number of rounds for the federated training"
+        "--r", type=int, default=10, help="Number of rounds for the federated training"
     )
     parser.add_argument(
-        "-fc",
+        "--fc",
         type=int,
         default=3,
         help="Min fit clients, min number of clients to be sampled next round",
     )
     parser.add_argument(
-        "-ac",
+        "--ac",
         type=int,
         default=3,
         help="Min available clients, min number of clients that need to connect to the server before training round can start",
@@ -118,27 +124,24 @@ if __name__ == "__main__":
     # Load model for
         # 1. server-side parameter initialization
         # 2. server-side parameter evaluation
-    model = utils.load_model(args.model)
-    init_weights = utils.get_weights(model)
-    # Convert the weights (np.ndarray) to parameters (bytes)
-    init_param = fl.common.weights_to_parameters(init_weights)
-    # del the net as we don't need it anymore
-    del model
+    model = utils.load_model(args.model, device).eval() 
 
-    wandb.init(project="dai-healthcare" , entity='eyeforai', group='mp', tags='mp',config={"model": args.model})
+    wandb.init(project="dai-healthcare" , entity='eyeforai', group='mp', tags=[args.tags], config={"model": args.model})
     wandb.config.update(args)
     
     # Create strategy
     strategy = fl.server.strategy.FedAvg(
         fraction_fit = fc/ac,
-        fraction_eval = 0.2,
+        fraction_eval = 1,
         min_fit_clients = fc,
         min_eval_clients = 2,
         min_available_clients = ac,
         eval_fn=get_eval_fn(),
         on_fit_config_fn=fit_config,
         on_evaluate_config_fn=evaluate_config,
-        initial_parameters=init_param, 
+        initial_parameters= fl.common.weights_to_parameters(utils.get_parameters(model, EXCLUDE_LIST)),  
     )
+    # del the net as we don't need it anymore
+    del model
 
     fl.server.start_server("0.0.0.0:8080", config={"num_rounds": rounds}, strategy=strategy)

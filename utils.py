@@ -459,11 +459,9 @@ class CustomDataset(Dataset):
         labels = self.df.iloc[index]['target']
 
         if self.train:
-            #return images, labels
             return torch.tensor(images, dtype=torch.float32), torch.tensor(labels, dtype=torch.float32)
         
         else:
-            #return (images)
             return img_path, torch.tensor(images, dtype=torch.float32), torch.tensor(labels, dtype=torch.float32)
 
 
@@ -583,9 +581,9 @@ def val(model, validate_loader, criterion, partition, nowandb, device="cuda"):
         val_f1_score = f1_score(val_gt, np.round(pred))
 
         if not nowandb:
-            wandb.log({f'Client{partition}/Validation AUC Score': val_auc_score, f'Client{partition}/Validation Acc': val_accuracy,
-                             f'Client{partition}/Validation Loss': val_loss/len(validate_loader)})
-
+            name = f'Client{partition}' if partition != -1 else 'Server'
+            wandb.log({f'{name}/Validation AUC Score': val_auc_score, f'{name}/Validation Acc': val_accuracy,
+                             f'{name}/Validation Loss': val_loss/len(validate_loader)})
 
         return val_loss/len(validate_loader), val_auc_score, val_accuracy, val_f1_score
 
@@ -630,3 +628,4 @@ def val_mp_server(arch, parameters, device, EXCLUDE_LIST, return_dict):
         return_dict['loss'] = val_loss/len(test_loader)
         return_dict['auc_score'] = val_auc_score
         return_dict['accuracy'] = val_accuracy 
+        return_dict['num_examples'] = {"testset" : len(testset)}
