@@ -33,8 +33,9 @@ seed = 2022
 utils.seed_everything(seed)
 
 
-def get_eval_fn():
+def get_eval_fn(self, path):
     """Return an evaluation function for server-side evaluation."""
+    self.path = path
 
     # The `evaluate` function will be called after every round
     def evaluate(
@@ -45,7 +46,7 @@ def get_eval_fn():
         # We receive the results through a shared dictionary
         return_dict = manager.dict()
         # Create the process
-        p = mp.Process(target=utils.val_mp_server, args=(args.model, weights, device, EXCLUDE_LIST, return_dict))
+        p = mp.Process(target=utils.val_mp_server, args=(args.model, weights, EXCLUDE_LIST, return_dict, device, self.path))
         # Start the process
         p.start()
         # Wait for it to end
@@ -98,19 +99,20 @@ if __name__ == "__main__":
     parser = ArgumentParser()  
     parser.add_argument("--model", type=str, default='efficientnet-b2')
     parser.add_argument("--tags", type=str, default='Exp 5. FedAvg') 
+    parser.add_argument("--path", type=str, default='/workspace/melanoma_isic_dataset') 
     parser.add_argument(
         "--r", type=int, default=10, help="Number of rounds for the federated training"
     )
     parser.add_argument(
         "--fc",
         type=int,
-        default=3,
+        default=5,
         help="Min fit clients, min number of clients to be sampled next round",
     )
     parser.add_argument(
         "--ac",
         type=int,
-        default=3,
+        default=5,
         help="Min available clients, min number of clients that need to connect to the server before training round can start",
     )
     args = parser.parse_args()
@@ -136,7 +138,7 @@ if __name__ == "__main__":
         min_fit_clients = fc,
         min_eval_clients = 2,
         min_available_clients = ac,
-        eval_fn=get_eval_fn(),
+        eval_fn=get_eval_fn(args.path),
         on_fit_config_fn=fit_config,
         on_evaluate_config_fn=evaluate_config,
         initial_parameters= fl.common.weights_to_parameters(utils.get_parameters(model, EXCLUDE_LIST)),  

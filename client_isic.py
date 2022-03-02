@@ -120,6 +120,7 @@ if __name__ == "__main__":
     parser.add_argument("--gpu", type=int, default='0')   
     parser.add_argument("--tags", type=str, default='Exp 5. FedAvg') 
     parser.add_argument("--nowandb", action="store_true") 
+    parser.add_argument("--path", type=str, default='/workspace/melanoma_isic_dataset') 
     args = parser.parse_args()
 
     
@@ -143,10 +144,10 @@ if __name__ == "__main__":
     # Exp 1
     # trainset, testset, num_examples = utils.load_exp1_partition(trainset, testset, num_examples, idx=args.partition)
     # Exp 2/3
-    train_df, validation_df, num_examples = utils.load_isic_by_patient(args.partition)
+    train_df, validation_df, num_examples = utils.load_isic_by_patient(args.partition, args.path)
     trainset = utils.CustomDataset(df = train_df, train = True, transforms = training_transforms) 
     valset = utils.CustomDataset(df = validation_df, train = True, transforms = testing_transforms ) 
-    testset =  utils.load_isic_by_patient(-1)
+    testset =  utils.load_isic_by_patient(-1, args.path)
     
     print(f"Train dataset: {len(trainset)}, Val dataset: {len(valset)}, Test dataset: {len(testset)}")
 

@@ -11,7 +11,7 @@ from typing import List, Tuple, Dict
 
 import torch 
 import torch.nn as nn 
-from torch import device, optim 
+from torch import optim 
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader 
 from argparse import ArgumentParser 
@@ -41,8 +41,14 @@ class Client(fl.client.NumPyClient):
 
     def __init__(
         self, 
+        device,
+        nowandb,
+        path,
     ) -> None:
         self.parameters = None 
+        self.device = device
+        self.nowandb = nowandb
+        self.path = path
 
     def get_parameters(self) -> List[np.ndarray]:
         # Return model parameters as a list of NumPy ndarrays
@@ -64,8 +70,8 @@ class Client(fl.client.NumPyClient):
         # We receive the results through a shared dictionary
         return_dict = manager.dict()
         # Create the process
-        p = mp.Process(target=train, args=(args.model, parameters, return_dict, args.partition, 
-                                                    args.num_partitions, args.log_interval, args.epochs))
+        p = mp.Process(target=train, args=(args.model, parameters, return_dict, args.partition, args.num_partitions, 
+                                                args.log_interval, args.epochs, 3, self.device, self.nowandb, self.path))
         # Start the process
         p.start() 
         # Wait for it to end
@@ -94,7 +100,7 @@ class Client(fl.client.NumPyClient):
         # We receive the results through a shared dictionary
         return_dict = manager.dict()
         # Create the process
-        p = mp.Process(target=utils.val_mp_server, args=(args.model, parameters, device, EXCLUDE_LIST, return_dict))
+        p = mp.Process(target=utils.val_mp_server, args=(args.model, parameters, EXCLUDE_LIST, return_dict, self.device, self.path))
         # Start the process
         p.start()
         # Wait for it to end
@@ -117,7 +123,7 @@ class Client(fl.client.NumPyClient):
 
 
 
-def train(arch, parameters, return_dict, partition, num_partitions = 5, log_interval = 100, epochs = 10, es_patience = 3):
+def train(arch, parameters, return_dict, partition, num_partitions = 5, log_interval = 100, epochs = 10, es_patience = 3, device='cuda', nowandb=True, path='/workspace/melanoma_isic_dataset'):
     # Create model
     model = utils.load_model(arch, device)
     model.to(device)
@@ -125,7 +131,7 @@ def train(arch, parameters, return_dict, partition, num_partitions = 5, log_inte
     if parameters is not None:
         utils.set_parameters(model, parameters, EXCLUDE_LIST)
     # Load data
-    train_df, validation_df, num_examples = utils.load_isic_by_patient(args.partition)
+    train_df, validation_df, num_examples = utils.load_isic_by_patient(partition, path)
     trainset = utils.CustomDataset(df = train_df, train = True, transforms = training_transforms) 
     valset = utils.CustomDataset(df = validation_df, train = True, transforms = testing_transforms )  
     train_loader = DataLoader(trainset, batch_size=32, num_workers=4, worker_init_fn=utils.seed_worker, shuffle=True) 
@@ -172,17 +178,18 @@ def train(arch, parameters, return_dict, partition, num_partitions = 5, log_inte
                             
         train_acc = correct / num_examples["trainset"]
 
-        val_loss, val_auc_score, val_accuracy, val_f1 = utils.val(model, test_loader, criterion)
+        val_loss, val_auc_score, val_accuracy, val_f1 = utils.val(model, val_loader, criterion, partition, nowandb, device="cuda")
             
         print("Epoch: {}/{}.. ".format(e+1, epochs),
             "Training Loss: {:.3f}.. ".format(running_loss/len(train_loader)),
             "Training Accuracy: {:.3f}..".format(train_acc),
-            "Validation Loss: {:.3f}.. ".format(val_loss/len(test_loader)),
+            "Validation Loss: {:.3f}.. ".format(val_loss/len(val_loader)),
             "Validation Accuracy: {:.3f}".format(val_accuracy),
             "Validation AUC Score: {:.3f}".format(val_auc_score),
             "Validation F1 Score: {:.3f}".format(val_f1))
-            
-        wandb.log({f'Client{partition}/Training acc': train_acc, f'Client{partition}/training_loss': running_loss/len(train_loader),
+        
+        if not nowandb:
+            wandb.log({f'Client{partition}/Training acc': train_acc, f'Client{partition}/training_loss': running_loss/len(train_loader),
                     f'Client{partition}/Validation AUC Score': val_auc_score, f'Client{partition}/Validation Acc': val_accuracy, f'Client{partition}/Validation Loss': val_loss})
 
         scheduler.step(val_auc_score)
@@ -204,10 +211,10 @@ def train(arch, parameters, return_dict, partition, num_partitions = 5, log_inte
     return_dict["data_size"] = num_examples["trainset"] 
     return_dict["train_loss"] = running_loss/len(train_loader)
     return_dict["train_acc"] = train_acc
-    return_dict["val_loss"] = val_loss/len(test_loader)
+    return_dict["val_loss"] = val_loss/len(val_loader)
     return_dict["val_acc"] = val_accuracy
 
-    del train_loader, test_loader, images                 
+    del train_loader, val_loader, images                 
 
 if __name__ == "__main__":
     parser = ArgumentParser() 
@@ -218,6 +225,7 @@ if __name__ == "__main__":
     parser.add_argument("--partition", type=int, default='0')    
     parser.add_argument("--gpu", type=int, default='0')   
     parser.add_argument("--tags", type=str, default='Exp 5. FedAvg') 
+    parser.add_argument("--path", type=str, default='/workspace/melanoma_isic_dataset') 
     parser.add_argument("--nowandb", action="store_true") 
     args = parser.parse_args()
 
@@ -234,6 +242,6 @@ if __name__ == "__main__":
     mp.set_start_method("spawn", force=True)
 
     # Start client 
-    fl.client.start_numpy_client("0.0.0.0:8080", Client())
+    fl.client.start_numpy_client("0.0.0.0:8080", Client(device, args.nowandb, args.path))
 
     

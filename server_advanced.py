@@ -1,19 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # File       : server_advanced.py
-# Modified   : 17.02.2022
+# Modified   : 02.03.2022
 # By         : Sandra Carrasco <sandra.carrasco@ai.se>
-
-import sys 
 
 import src.py.flwr as fl 
 from typing import List, Tuple, Dict, Optional 
-import numpy as np
-sys.path.append('/workspace/stylegan2-ada-pytorch') 
+import numpy as np 
 import torch
 from torch.utils.data import DataLoader
-import torch.nn as nn 
-from collections import OrderedDict
+import torch.nn as nn  
 import utils
 import warnings
 import wandb
@@ -30,7 +26,7 @@ seed = 2022
 utils.seed_everything(seed)
 
         
-def get_eval_fn(model):
+def get_eval_fn(model, path):
     """Return an evaluation function for server-side evaluation."""
 
     # Load data and model here to avoid the overhead of doing it in `evaluate` itself
@@ -43,7 +39,7 @@ def get_eval_fn(model):
     #_, testset, _ = utils.load_isic_by_patient_server()
 
     # Exp 3
-    testset = utils.load_isic_by_patient(partition=-1)
+    testset = utils.load_isic_by_patient(-1,path)
     testloader = DataLoader(testset, batch_size=32, num_workers=4, worker_init_fn=utils.seed_worker, shuffle = False)  
     # The `evaluate` function will be called after every round
     def evaluate(
@@ -102,6 +98,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, default='efficientnet-b2')
     parser.add_argument("--tags", type=str, default='Exp 5. FedAvg') 
     parser.add_argument("--nowandb", action="store_true")  
+    parser.add_argument("--path", type=str, default='/workspace/melanoma_isic_dataset') 
 
     parser.add_argument(
         "--r", type=int, default=10, help="Number of rounds for the federated training"
@@ -148,7 +145,7 @@ if __name__ == "__main__":
         min_fit_clients = fc,
         min_eval_clients = 2,  
         min_available_clients = ac,
-        eval_fn=get_eval_fn(model),
+        eval_fn=get_eval_fn(model, args.path),
         on_fit_config_fn=fit_config,
         on_evaluate_config_fn=evaluate_config,
         initial_parameters= fl.common.weights_to_parameters(utils.get_parameters(model, EXCLUDE_LIST)),  

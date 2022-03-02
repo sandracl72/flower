@@ -167,10 +167,10 @@ def create_split(source_dir, n_b, n_m):
     return train_id_list, val_id_list  #test_id_list
 
 
-def load_isic_by_patient(partition):
+def load_isic_by_patient(partition, path='/workspace/melanoma_isic_dataset'):
     # Load data
-    df = pd.read_csv('/workspace/melanoma_isic_dataset/train_concat.csv')
-    train_img_dir = '/workspace/melanoma_isic_dataset/train/train/'
+    df = pd.read_csv(os.path.join(path,'train_concat.csv'))
+    train_img_dir = os.path.join(path,'train/train/')
     
     df['image_name'] = [os.path.join(train_img_dir, df.iloc[index]['image_name'] + '.jpg') for index in range(len(df))]
     df["patient_id"] = df["patient_id"].fillna('nan')
@@ -299,10 +299,10 @@ def load_isic_by_patient(partition):
     return train_df, validation_df, num_examples
 
 
-def load_isic_by_patient_server():
+def load_isic_by_patient_server( path='/workspace/melanoma_isic_dataset'):
     # Load data
-    df = pd.read_csv('/workspace/melanoma_isic_dataset/train_concat.csv')
-    train_img_dir = '/workspace/melanoma_isic_dataset/train/train/'
+    df = pd.read_csv(os.path.join(path,'train_concat.csv'))
+    train_img_dir = os.path.join(path,'train/train/')
     df['image_name'] = [os.path.join(train_img_dir, df.iloc[index]['image_name'] + '.jpg') for index in range(len(df))]
     df["patient_id"] = df["patient_id"].fillna('nan')
     # df.loc[df['patient_id'].isnull()==True]['target'].unique() # 337 rows melanomas
@@ -589,7 +589,7 @@ def val(model, validate_loader, criterion, partition, nowandb, device="cuda"):
 
 
 
-def val_mp_server(arch, parameters, device, EXCLUDE_LIST, return_dict):          
+def val_mp_server(arch, parameters, EXCLUDE_LIST, return_dict, device='cuda', path='/workspace/melanoma_isic_dataset'):          
     # Create model
     model = load_model(arch)
     model.to(device)
@@ -597,7 +597,7 @@ def val_mp_server(arch, parameters, device, EXCLUDE_LIST, return_dict):
     if parameters is not None:
         set_parameters(model, parameters, EXCLUDE_LIST)
     # Load data
-    testset = load_isic_by_patient(partition=-1)
+    testset = load_isic_by_patient(-1, path)
     test_loader = DataLoader(testset, batch_size=32, num_workers=4, worker_init_fn=seed_worker, shuffle = False)   
     preds=[]            
     all_labels=[]
