@@ -6,14 +6,8 @@
 
 import sys 
 import src.py.flwr as fl 
-from typing import List, Tuple, Dict, Optional
-import sys, os
-import numpy as np
-sys.path.append('/workspace/stylegan2-ada-pytorch') 
-import torch
-from torch.utils.data import DataLoader
-import torch.nn as nn 
-from collections import OrderedDict
+from typing import List, Tuple, Dict, Optional 
+import torch 
 import utils
 import warnings
 import wandb
@@ -33,9 +27,8 @@ seed = 2022
 utils.seed_everything(seed)
 
 
-def get_eval_fn(self, path):
-    """Return an evaluation function for server-side evaluation."""
-    self.path = path
+def get_eval_fn(path):
+    """Return an evaluation function for server-side evaluation.""" 
 
     # The `evaluate` function will be called after every round
     def evaluate(
@@ -46,7 +39,7 @@ def get_eval_fn(self, path):
         # We receive the results through a shared dictionary
         return_dict = manager.dict()
         # Create the process
-        p = mp.Process(target=utils.val_mp_server, args=(args.model, weights, EXCLUDE_LIST, return_dict, device, self.path))
+        p = mp.Process(target=utils.val_mp_server, args=(args.model, weights, EXCLUDE_LIST, return_dict, device, path))
         # Start the process
         p.start()
         # Wait for it to end
