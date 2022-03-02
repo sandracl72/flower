@@ -1,19 +1,26 @@
-#!/bin/bash
+#!/bin/sh
 
-# Loading script arguments
+NBCLIENTS="5"
+NBMINCLIENTS="5"
+NBFITCLIENTS="5"
+NBROUNDS="5"
+NBEPOCHS="5"
+data_path="/workspace/"
 
-while getopts ":nc:ac:fc:r:e:p:" flag; do
+# Loading script arguments 
+while getopts "nc:ac:fc:r:e:p:" flag; do
     case "${flag}" in
-        nc) NBCLIENTS=${OPTARG:-5};;   # Nb of clients launched by the script (default to 5)
-        ac) NBMINCLIENTS=${OPTARG:-5};;  # Nb min of clients before launching round (default to 5)
-        fc) NBFITCLIENTS=${OPTARG:-5};;  # Nb of clients sampled for the round (default to 5)
-        r) NBROUNDS=${OPTARG:-10};;  # Nb of rounds (default to 10)
-        e) NBEPOCHS=${OPTARG:-2};;  # Nb of epochs per round (default to 2)
-        p) PATH=${OPTARG};;
+        nc) NBCLIENTS=${OPTARG};;   # Nb of clients launched by the script (default to 5)
+        ac) NBMINCLIENTS=${OPTARG};;  # Nb min of clients before launching round (default to 5)
+        fc) NBFITCLIENTS=${OPTARG};;  # Nb of clients sampled for the round (default to 5)
+        r) NBROUNDS=${OPTARG};;  # Nb of rounds (default to 10)
+        e) NBEPOCHS=${OPTARG};;  # Nb of epochs per round (default to 2)
+        p) data_path=${OPTARG};;
     esac
 done
 
-python server_advanced_mp.py -r $NBROUNDS -fc $NBFITCLIENTS -ac $NBMINCLIENTS --path $PATH&
+echo $PATH 
+python server_advanced_mp.py --r $NBROUNDS --fc $NBFITCLIENTS --ac $NBMINCLIENTS --path $data_path &
 sleep 10 # Sleep for N seconds to give the server enough time to start, increase if clients can't connect
 
 # for ((nb=0; nb<$NBCLIENTS; nb++))  
