@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# File       : train_local.py
-# Modified   : 17.02.2022
+# File       : client_isic.py
+# Modified   : 08.03.2022
 # By         : Sandra Carrasco <sandra.carrasco@ai.se>
 import os
 from collections import OrderedDict
@@ -27,7 +27,7 @@ seed_everything(seed)
 EXCLUDE_LIST = [
     #"running",
     #"num_batches_tracked",
-#"bn",
+    "bn",
 ]
 
 class Client(fl.client.NumPyClient):
@@ -103,7 +103,7 @@ class Client(fl.client.NumPyClient):
         # WE DON'T EVALUATE OUR CLIENTS DECENTRALIZED
         # Set model parameters, evaluate model on local test dataset, return result
         self.set_parameters(parameters)
-        loss, auc, accuracy, f1 = utils.val(self.model, self.testloader, nn.BCEWithLogitsLoss(), f"{args.partition}_test",args.nowandb, device)
+        loss, auc, accuracy, f1 = utils.val(self.model, self.testloader, nn.BCEWithLogitsLoss(), f"_test",args.nowandb, device)
 
         return float(loss), self.num_examples["testset"], {"accuracy": float(accuracy), "auc": float(auc), "f1": float(f1)}
                 
@@ -113,12 +113,12 @@ class Client(fl.client.NumPyClient):
 if __name__ == "__main__":
     parser = ArgumentParser() 
     parser.add_argument("--model", type=str, default='efficientnet-b2') 
-    parser.add_argument("--log_interval", type=int, default='100')  
-    parser.add_argument("--epochs", type=int, default='2')  
-    parser.add_argument("--num_partitions", type=int, default='20') 
-    parser.add_argument("--partition", type=int, default='0')   
-    parser.add_argument("--gpu", type=int, default='0')   
-    parser.add_argument("--tags", type=str, default='Exp 5. FedAvg') 
+    parser.add_argument("--log_interval", type=int, default=100)  
+    parser.add_argument("--epochs", type=int, default=2)  
+    parser.add_argument("--num_partitions", type=int, default=20) 
+    parser.add_argument("--partition", type=int, default=0)   
+    parser.add_argument("--gpu", type=int, default=0)   
+    parser.add_argument("--tags", type=str, default='Exp 5. FedBN') 
     parser.add_argument("--nowandb", action="store_true") 
     parser.add_argument("--path", type=str, default='/workspace/melanoma_isic_dataset') 
     args = parser.parse_args()

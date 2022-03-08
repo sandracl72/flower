@@ -19,7 +19,6 @@ while getopts "nc:ac:fc:r:e:p:" flag; do
     esac
 done
 
-echo $PATH 
 python server_advanced_mp.py --r $NBROUNDS --fc $NBFITCLIENTS --ac $NBMINCLIENTS --path $data_path &
 sleep 10 # Sleep for N seconds to give the server enough time to start, increase if clients can't connect
 

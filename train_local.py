@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # File       : train_local.py
-# Modified   : 17.02.2022
+# Modified   : 08.03.2022
 # By         : Sandra Carrasco <sandra.carrasco@ai.se>
 
 import torch 
@@ -24,7 +24,7 @@ if __name__ == "__main__":
     parser = ArgumentParser() 
     parser.add_argument("--model", type=str, default='efficientnet-b2') 
     parser.add_argument("--path_data", type=str, default='/workspace/melanoma_isic_dataset') 
-    parser.add_argument("--tags", type=str, default='local_training Exp 5', help="Use 'whole' for training with whole dataset") 
+    parser.add_argument("--tags", type=str, default='Exp 6 BIAS', help="Use 'whole' for training with whole dataset") 
     parser.add_argument("--log_interval", type=int, default='100')  
     parser.add_argument("--epochs", type=int, default='20')  
     parser.add_argument("--early_stopping", type=int, default='3')  

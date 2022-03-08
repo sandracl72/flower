@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # File       : server_advanced.py
-# Modified   : 02.03.2022
+# Modified   : 08.03.2022
 # By         : Sandra Carrasco <sandra.carrasco@ai.se>
 
 import src.py.flwr as fl 
@@ -20,7 +20,7 @@ warnings.filterwarnings("ignore")
 EXCLUDE_LIST = [
     #"num_batches_tracked",
     #"running",
-    #"bn", #FedBN
+    "bn", #FedBN
 ]
 seed = 2022
 utils.seed_everything(seed)
@@ -96,7 +96,7 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()  
     parser.add_argument("--model", type=str, default='efficientnet-b2')
-    parser.add_argument("--tags", type=str, default='Exp 5. FedAvg') 
+    parser.add_argument("--tags", type=str, default='Exp 5. FedBN') 
     parser.add_argument("--nowandb", action="store_true")  
     parser.add_argument("--path", type=str, default='/workspace/melanoma_isic_dataset') 
 

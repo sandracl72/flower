@@ -176,6 +176,43 @@ def load_isic_by_patient(partition, path='/workspace/melanoma_isic_dataset'):
     df["patient_id"] = df["patient_id"].fillna('nan')
     # df.loc[df['patient_id'].isnull()==True]['target'].unique() # 337 rows melanomas
     
+    """
+    # EXP 6: same bias/ratio same size - different BIASES
+    bias_df = pd.read_csv("/workspace/flower/bias_pseudoannotations_real_train_ISIC20.csv")
+    bias_df['image_name'] = [os.path.join(train_img_dir, bias_df.iloc[index]['image_name']) for index in range(len(bias_df))]   
+    #bias_df = pd.merge(bias_df, df, how='inner', on=["image_name"])
+    target_groups = bias_df.groupby('target', as_index=False) # keep column target
+    df_ben = target_groups.get_group(0) # 32533 benign
+    df_mal = target_groups.get_group(1) # 5105 melanoma
+    # EXP 6 
+    if partition == 0:
+        #FRAMES 
+        df_b = df_ben.groupby('black_frame').get_group(1)                                # 687 with frame 
+        df_m =  df_mal.groupby(['black_frame','ruler_mark']).get_group((1,0))[:323]    # 2082 with frame  
+        df = pd.concat([df_b, df_m])                                               # Use 1010 (32%mel) # TOTAL 2848 (75% mel)
+        train_split, valid_split = train_test_split(df, stratify=df.target, test_size = 0.20, random_state=42)
+    elif partition == 1:
+        # RULES
+        df_b = df_ben.groupby(['black_frame','ruler_mark']).get_group((0,1)).head(1125)      # 4717 with rules and no frames 
+        df_m =  df_mal.groupby(['black_frame','ruler_mark']).get_group((0,1)).head(375)      # 516 with rules and no frames  
+        df = pd.concat([df_b, df_m])                                                   # Use 1500 (25%mel) # TOTAL 5233 (10% mel)
+        train_split, valid_split = train_test_split(df, stratify=df.target, test_size = 0.20, random_state=42)
+    elif partition == 2:
+        # NONE
+        df_b = df_ben.groupby(['black_frame','ruler_mark']).get_group((0,0)).head(1125)      # 27129 without frames or rulers 
+        df_m =  df_mal.groupby(['black_frame','ruler_mark']).get_group((0,0)).head(375)      # 2507 without frames or rulers  14%
+        df = pd.concat([df_b, df_m])                                                   # Use 1500 (25%mel) # TOTAL 29636 (8.4% mel)
+        train_split, valid_split = train_test_split(df, stratify=df.target, test_size = 0.20, random_state=42)
+    else:
+        #server
+        df_b = df_ben.groupby(['black_frame','ruler_mark']).get_group((0,0))[2000:5000] # 3000
+        df_m = df_mal.groupby(['black_frame','ruler_mark']).get_group((0,0))[500:1500] # 1000 (30% M) T=4000
+        valid_split = pd.concat([df_b, df_m])
+        validation_df=pd.DataFrame(valid_split) 
+        testing_dataset = CustomDataset(df = validation_df, train = True, transforms = testing_transforms ) 
+        return testing_dataset
+
+    """
     # Split by Patient 
     patient_groups = df.groupby('patient_id') #37311
     # Split by Patient and Class 
@@ -512,7 +549,7 @@ def train(model, train_loader, validate_loader, num_examples,partition, nowandb,
                             
         train_acc = correct / num_examples["trainset"]
 
-        val_loss, val_auc_score, val_accuracy, val_f1 = val(model, validate_loader, criterion, partition, nowandb)
+        val_loss, val_auc_score, val_accuracy, val_f1 = val(model, validate_loader, criterion, partition, nowandb, device)
             
         print("Epoch: {}/{}.. ".format(e+1, epochs),
             "Training Loss: {:.3f}.. ".format(running_loss/len(train_loader)),
